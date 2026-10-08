@@ -1,0 +1,6 @@
+*
+!.gitignore
+!markets/
+!markets/demo/
+!markets/demo/*.jpg
+!markets/demo/*.png
