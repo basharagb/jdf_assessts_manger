@@ -20,7 +20,7 @@
                 <div class="info-cell"><span class="info-icon info-violet"><i data-lucide="building-2"></i></span><span><small>الجهة المؤجرة</small><b>{{ $market->lessor }}</b></span></div>
                 <div class="info-cell"><span class="info-icon info-amber"><i data-lucide="calendar-days"></i></span><span><small>بداية الإيجار</small><b>{{ $market->lease_start_date->format('Y/m/d') }}</b></span></div>
                 <div class="info-cell"><span class="info-icon info-blue"><i data-lucide="calendar-check-2"></i></span><span><small>نهاية العقد</small><b>{{ $market->lease_end_date?->format('Y/m/d') ?? 'غير محدد' }}</b></span></div>
-                <div class="info-cell"><span class="info-icon info-green"><i data-lucide="wallet"></i></span><span><small>الإيجار الشهري</small><b>{{ number_format((float) $market->monthly_rent, 2) }} د.أ</b></span></div>
+                <div class="info-cell"><span class="info-icon info-green"><i data-lucide="wallet"></i></span><span><small>الإيجار الشهري الحالي</small><b>{{ number_format($market->rentForMonth(), 2) }} د.أ</b></span></div>
             </div>
             @if($market->description)<div class="description-box"><span>ملاحظات</span><p>{{ $market->description }}</p></div>@endif
         </div>
