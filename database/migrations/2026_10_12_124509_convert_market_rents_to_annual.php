@@ -9,16 +9,23 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('markets', function (Blueprint $table): void {
-            $table->renameColumn('monthly_rent', 'annual_rent');
-        });
-        Schema::table('market_rent_periods', function (Blueprint $table): void {
-            $table->renameColumn('monthly_rent', 'annual_rent');
-            $table->unsignedSmallInteger('start_year')->nullable();
-            $table->unsignedSmallInteger('end_year')->nullable();
-        });
+        if (Schema::hasColumn('markets', 'monthly_rent')) {
+            Schema::table('markets', fn (Blueprint $table) => $table->renameColumn('monthly_rent', 'annual_rent'));
+        }
+        if (Schema::hasColumn('market_rent_periods', 'monthly_rent')) {
+            Schema::table('market_rent_periods', fn (Blueprint $table) => $table->renameColumn('monthly_rent', 'annual_rent'));
+        }
+        if (! Schema::hasColumn('market_rent_periods', 'start_year')) {
+            Schema::table('market_rent_periods', function (Blueprint $table): void {
+                $table->unsignedSmallInteger('start_year')->nullable();
+                $table->unsignedSmallInteger('end_year')->nullable();
+            });
+        }
         DB::table('market_rent_periods')->orderBy('id')->chunkById(100, function ($periods): void {
             foreach ($periods as $period) {
+                if ($period->start_year !== null) {
+                    continue;
+                }
                 $leaseStart = DB::table('markets')->where('id', $period->market_id)->value('lease_start_date');
                 $anniversaryMonth = substr($leaseStart, 5, 2);
                 $startYear = (int) substr($period->start_month, 0, 4) - (substr($period->start_month, 5, 2) < $anniversaryMonth ? 1 : 0);
@@ -30,12 +37,17 @@ return new class extends Migration
                 ]);
             }
         });
-        Schema::table('market_rent_periods', function (Blueprint $table): void {
-            $table->dropIndex('market_rent_periods_market_id_start_month_end_month_index');
-            $table->dropColumn(['start_month', 'end_month']);
-            $table->unsignedSmallInteger('start_year')->nullable(false)->change();
-            $table->index(['market_id', 'start_year', 'end_year']);
-        });
+        if (! Schema::hasIndex('market_rent_periods', 'market_rent_periods_market_id_start_year_end_year_index')) {
+            Schema::table('market_rent_periods', fn (Blueprint $table) => $table->index(['market_id', 'start_year', 'end_year']));
+        }
+        if (Schema::hasIndex('market_rent_periods', 'market_rent_periods_market_id_start_month_end_month_index')) {
+            Schema::table('market_rent_periods', fn (Blueprint $table) => $table->dropIndex('market_rent_periods_market_id_start_month_end_month_index'));
+        }
+        if (Schema::hasColumn('market_rent_periods', 'start_month')) {
+            Schema::table('market_rent_periods', fn (Blueprint $table) => $table->dropColumn(['start_month', 'end_month']));
+        }
+        Schema::table('market_rent_periods', fn (Blueprint $table) => $table->unsignedSmallInteger('start_year')->nullable(false)->change());
+
     }
 
     public function down(): void
@@ -54,11 +66,13 @@ return new class extends Migration
             }
         });
         Schema::table('market_rent_periods', function (Blueprint $table): void {
+            $table->index(['market_id', 'start_month', 'end_month']);
+        });
+        Schema::table('market_rent_periods', function (Blueprint $table): void {
             $table->dropIndex('market_rent_periods_market_id_start_year_end_year_index');
             $table->dropColumn(['start_year', 'end_year']);
             $table->renameColumn('annual_rent', 'monthly_rent');
             $table->string('start_month', 7)->nullable(false)->change();
-            $table->index(['market_id', 'start_month', 'end_month']);
         });
         Schema::table('markets', function (Blueprint $table): void {
             $table->renameColumn('annual_rent', 'monthly_rent');
