@@ -45,12 +45,13 @@ class ReportController extends Controller
     private function report(Request $request, string $title, Collection $markets, string $filename): View|Response
     {
         $request->validate(['format' => ['nullable', 'in:pdf']]);
-        $entries = $markets->map(function (Market $market): array {
+        $entries = $markets->map(function (Market $market) use ($request): array {
             $lastYear = $market->lease_end_date ? AnnualLease::lastYear($market) : AnnualLease::currentYear($market);
             $rows = AnnualLease::ledger($market, $market->lease_start_date->year, $lastYear);
+
             return [
                 'market' => $market, 'rows' => $rows, 'totals' => AnnualLease::totals($rows),
-                'image' => $this->image($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg'),
+                'image' => $request->query('format') === 'pdf' ? $this->pdfImage($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg') : $this->image($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg'),
             ];
         });
         $summary = [
@@ -90,11 +91,44 @@ class ReportController extends Controller
         $mpdf->SetAuthor('الشؤون الادارية- توثيق وترخيص ممتلكات');
         $mpdf->SetHTMLFooter('<div style="text-align:center;font-size:9px;color:#64748b">الأسواق الحرة الأردنية | {PAGENO} / {nbpg}</div>');
         $mpdf->WriteHTML(view('reports.show', $data)->render());
+
         return response($mpdf->Output('', Destination::STRING_RETURN), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$filename.'-'.now()->format('Y-m-d').'.pdf"',
             'Cache-Control' => 'private, no-store',
         ]);
+    }
+
+    private function pdfImage(string $storagePath): ?string
+    {
+        $path = Storage::disk('public')->path($storagePath);
+        if (! is_file($path)) {
+            return null;
+        }
+        $info = getimagesize($path);
+        if ($info === false || ! in_array($info['mime'], ['image/jpeg', 'image/png', 'image/webp'], true)) {
+            return null;
+        }
+        $image = match ($info['mime']) {
+            'image/jpeg' => imagecreatefromjpeg($path),
+            'image/png' => imagecreatefrompng($path),
+            'image/webp' => imagecreatefromwebp($path),
+        };
+        $width = min(1400, imagesx($image));
+        $height = (int) round(imagesy($image) * $width / imagesx($image));
+        $resized = imagecreatetruecolor($width, $height);
+        imagefill($resized, 0, 0, imagecolorallocate($resized, 255, 255, 255));
+        imagecopyresampled($resized, $image, 0, 0, 0, 0, $width, $height, imagesx($image), imagesy($image));
+        $directory = storage_path('app/mpdf-images');
+        File::ensureDirectoryExists($directory);
+        $target = $directory.'/'.hash('sha256', $storagePath.'|'.filemtime($path).'|'.filesize($path)).'.jpg';
+        if (! is_file($target)) {
+            imagejpeg($resized, $target, 85);
+        }
+        imagedestroy($resized);
+        imagedestroy($image);
+
+        return $target;
     }
 
     private function image(?string $storagePath, ?string $localPath = null): ?string
@@ -107,6 +141,7 @@ class ReportController extends Controller
         if (! in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
             return null;
         }
+
         return 'data:'.$mime.';base64,'.base64_encode(file_get_contents($path));
     }
 }

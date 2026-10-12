@@ -8,6 +8,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
+use setasign\Fpdi\Fpdi;
+use setasign\Fpdi\PdfParser\StreamReader;
 
 class ReportsTest extends TestCase
 {
@@ -48,6 +50,8 @@ class ReportsTest extends TestCase
             $response = $this->get($url)->assertOk()->assertHeader('Content-Type', 'application/pdf');
             $this->assertStringStartsWith('%PDF-', $response->getContent());
             $this->assertGreaterThan(10000, strlen($response->getContent()));
+            $pages = (new Fpdi)->setSourceFile(StreamReader::createByString($response->getContent()));
+            $this->assertLessThanOrEqual(4, $pages, 'A short market report must fit into a few readable pages.');
         }
     }
 
