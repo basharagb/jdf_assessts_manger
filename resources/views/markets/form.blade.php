@@ -21,9 +21,9 @@
     <div class="form-card">
         <div class="form-card-heading"><span class="form-step form-step-green">٢</span><div><h2>بيانات عقد الإيجار</h2><p>يستخدم النظام هذه المعلومات لحساب الإجمالي حسب الفترة التي تحددها.</p></div></div>
         <div class="form-grid">
-            <label class="field"><span>الإيجار الشهري <b>*</b></span><div class="input-icon input-suffix"><i data-lucide="wallet"></i><input type="number" name="monthly_rent" value="{{ old('monthly_rent', $market->monthly_rent) }}" min="0" step="0.01" placeholder="0.00" required><em>د.أ</em></div>@error('monthly_rent')<small class="field-error">{{ $message }}</small>@enderror</label>
-            <label class="field"><span>تاريخ بداية الإيجار <b>*</b></span><div class="input-icon"><i data-lucide="calendar-days"></i><input type="date" name="lease_start_date" value="{{ old('lease_start_date', $market->lease_start_date?->format('Y-m-d')) }}" required></div>@error('lease_start_date')<small class="field-error">{{ $message }}</small>@enderror</label>
-            <label class="field"><span>تاريخ نهاية العقد</span><div class="input-icon"><i data-lucide="calendar-check-2"></i><input type="date" name="lease_end_date" value="{{ old('lease_end_date', $market->lease_end_date?->format('Y-m-d')) }}"></div><small class="field-help">اتركه فارغاً إذا لم يحدد العقد تاريخ نهاية.</small>@error('lease_end_date')<small class="field-error">{{ $message }}</small>@enderror</label>
+            <label class="field"><span>الإيجار السنوي <b>*</b></span><div class="input-icon input-suffix"><i data-lucide="wallet"></i><input type="number" name="annual_rent" value="{{ old('annual_rent', $market->annual_rent) }}" min="0" step="0.01" placeholder="0.00" required><em>د.أ</em></div>@error('annual_rent')<small class="field-error">{{ $message }}</small>@enderror</label>
+            <label class="field"><span>تاريخ بداية الإيجار <b>*</b></span><div class="input-icon"><i data-lucide="calendar-days"></i><input type="date" id="leaseStartDate" name="lease_start_date" min="{{ $market->exists && $market->lease_start_date->lt(\App\AnnualLease::earliestDate()) ? $market->lease_start_date->toDateString() : \App\AnnualLease::earliestDate()->toDateString() }}" value="{{ old('lease_start_date', $market->lease_start_date?->format('Y-m-d')) }}" required></div>@error('lease_start_date')<small class="field-error">{{ $message }}</small>@enderror</label>
+            <label class="field"><span>سنة نهاية العقد</span><div class="input-icon"><i data-lucide="calendar-check-2"></i><select id="leaseEndYear" name="lease_end_year" data-selected="{{ old('lease_end_year', $market->lease_end_date?->year) }}"><option value="">غير محددة</option></select></div><small class="field-help" id="leaseEndPreview">نهاية العقد في نفس يوم وشهر البداية؛ اختر السنة فقط.</small>@error('lease_end_year')<small class="field-error">{{ $message }}</small>@enderror</label>
             <div class="field field-switch"><span>حالة السوق</span><label class="switch-row"><input type="checkbox" name="is_active" value="1" @checked(old('is_active', $market->exists ? $market->is_active : true))><span class="switch-track"></span><span><b>سوق نشط</b><small>يظهر ضمن الأسواق النشطة والإحصائيات</small></span></label></div>
             <div class="field field-switch"><span>مصدر البيانات</span><label class="switch-row"><input type="checkbox" name="is_demo" value="1" @checked(old('is_demo', $market->exists ? $market->is_demo : false))><span class="switch-track"></span><span><b>بيانات ديمو تحتاج مراجعة</b><small>أزل العلامة بعد استبدال القيم الافتراضية بمعلومات مؤكدة</small></span></label></div>
         </div>
@@ -32,4 +32,33 @@
 
     <div class="form-actions"><a class="button button-quiet" href="{{ $market->exists ? route('markets.show', $market) : route('groups.show', $marketGroup) }}">إلغاء</a><button class="button button-primary" type="submit"><i data-lucide="check"></i>{{ $market->exists ? 'حفظ التعديلات' : 'حفظ السوق' }}</button></div>
 </form>
+@push('scripts')
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+    const start = document.getElementById('leaseStartDate');
+    const end = document.getElementById('leaseEndYear');
+    const preview = document.getElementById('leaseEndPreview');
+    function updateYears() {
+        const selected = end.value || end.dataset.selected;
+        end.replaceChildren(new Option('غير محددة', ''));
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(start.value)) { end.disabled = true; return; }
+        end.disabled = false;
+        const year = Number(start.value.slice(0, 4));
+        for (let next = year + 1; next <= Math.max(year + 30, Number(selected) || 0); next++) {
+            end.add(new Option(String(next), String(next), false, String(next) === selected));
+        }
+        updatePreview();
+    }
+    function updatePreview() {
+        if (!end.value || !start.value) { preview.textContent = 'نهاية العقد في نفس يوم وشهر البداية؛ اختر السنة فقط.'; return; }
+        const month = Number(start.value.slice(5, 7));
+        const day = Math.min(Number(start.value.slice(8, 10)), new Date(Number(end.value), month, 0).getDate());
+        preview.textContent = `نهاية العقد: ${day}/${month}/${end.value}`;
+    }
+    start.addEventListener('change', updateYears);
+    end.addEventListener('change', updatePreview);
+    updateYears();
+});
+</script>
+@endpush
 @endsection

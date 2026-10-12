@@ -1,0 +1,19 @@
+{
+  "name": "whatsapp-web-test-service",
+  "version": "1.0.0",
+  "description": "WhatsApp Web test service for internal review sending (NOT for production use)",
+  "main": "server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^7.0.0-rc.9",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "pino": "^8.21.0",
+    "qrcode": "^1.5.3"
+  }
+}

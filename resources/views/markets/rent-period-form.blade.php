@@ -6,14 +6,15 @@
 
 <form class="detail-card rent-period-form" method="POST" action="{{ $rentPeriod->exists ? route('markets.rent-details.update', [$market, $rentPeriod]) : route('markets.rent-details.store', $market) }}">
     @csrf @if($rentPeriod->exists) @method('PUT') @endif
-    @include('partials.month-picker', ['pickerId' => 'periodStartMonth', 'name' => 'start_month', 'label' => 'من شهر', 'value' => old('start_month', $rentPeriod->start_month), 'min' => $pickerMin, 'max' => $pickerMax, 'required' => true])
-    @include('partials.month-picker', ['pickerId' => 'periodEndMonth', 'name' => 'end_month', 'label' => 'إلى شهر (اتركه فارغاً للفترة المستمرة)', 'value' => old('end_month', $rentPeriod->end_month), 'min' => $pickerMin, 'max' => $pickerMax, 'required' => false])
-    @error('start_month')<small class="field-error">{{ $message }}</small>@enderror
-    @error('end_month')<small class="field-error">{{ $message }}</small>@enderror
+    <p class="field-help">كل سنة إيجار تبدأ في {{ $market->lease_start_date->format('d/m') }} وتنتهي في ذكرى العقد التالية. الرجوع متاح حتى خمس سنوات فقط.</p>
+    @include('partials.year-picker', ['pickerId' => 'periodStartYear', 'name' => 'start_year', 'label' => 'من سنة إيجار', 'value' => old('start_year', $rentPeriod->start_year), 'min' => $pickerMin, 'max' => $pickerMax, 'required' => true])
+    @include('partials.year-picker', ['pickerId' => 'periodEndYear', 'name' => 'end_year', 'label' => 'إلى سنة إيجار (اتركه فارغاً للفترة المستمرة)', 'value' => old('end_year', $rentPeriod->end_year), 'min' => $pickerMin, 'max' => $pickerMax, 'required' => false])
+    @error('start_year')<small class="field-error">{{ $message }}</small>@enderror
+    @error('end_year')<small class="field-error">{{ $message }}</small>@enderror
 
     <label class="field"><span>حالة الإيجار</span><select id="rentPeriodStatus" name="status" required>@foreach($statusLabels as $key => $label)<option value="{{ $key }}" @selected(old('status', $rentPeriod->status ?: 'paid') === $key)>{{ $label }}</option>@endforeach</select><small class="field-help">الإخلاء يستثني الفترة من المستحقات. غير المدفوع يبقى ضمن المستحق ويظهر كمتأخر.</small>@error('status')<small class="field-error">{{ $message }}</small>@enderror</label>
 
-    <label class="field" id="rentPeriodAmountField"><span>الإيجار الشهري <b>*</b></span><div class="input-icon input-suffix"><i data-lucide="wallet"></i><input id="rentPeriodAmount" type="number" name="monthly_rent" value="{{ old('monthly_rent', $rentPeriod->monthly_rent ?? $market->monthly_rent) }}" min="0" step="0.01" required><em>د.أ</em></div>@error('monthly_rent')<small class="field-error">{{ $message }}</small>@enderror</label>
+    <label class="field" id="rentPeriodAmountField"><span>الإيجار السنوي <b>*</b></span><div class="input-icon input-suffix"><i data-lucide="wallet"></i><input id="rentPeriodAmount" type="number" name="annual_rent" value="{{ old('annual_rent', $rentPeriod->annual_rent ?? $market->annual_rent) }}" min="0" step="0.01" required><em>د.أ</em></div>@error('annual_rent')<small class="field-error">{{ $message }}</small>@enderror</label>
 
     <label class="field"><span>ملاحظات</span><textarea name="notes" rows="3" maxlength="2000" placeholder="سبب الإخلاء أو ملاحظات السداد...">{{ old('notes', $rentPeriod->notes) }}</textarea>@error('notes')<small class="field-error">{{ $message }}</small>@enderror</label>
 

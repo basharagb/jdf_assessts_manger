@@ -11,6 +11,6 @@
         <div class="market-card-top"><span class="eyebrow">{{ $market->group->name ?? '' }}</span><span class="market-card-arrow"><i data-lucide="arrow-up-left"></i></span></div>
         <h3>{{ $market->name }}</h3>
         <p class="market-lessor"><i data-lucide="building-2"></i><span>{{ $market->lessor }}</span></p>
-        <div class="market-card-bottom"><span class="rent-caption">الإيجار الشهري</span><strong>{{ number_format($market->rentForMonth(), 2) }} <small>د.أ</small></strong></div>
+        <div class="market-card-bottom"><span class="rent-caption">الإيجار السنوي</span><strong>{{ number_format($market->currentAnnualRent(), 2) }} <small>د.أ</small></strong></div>
     </div>
 </a>

@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\AnnualLease;
 use App\Models\Market;
 use App\Models\MarketGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MarketController extends Controller
@@ -67,82 +70,19 @@ class MarketController extends Controller
     public function show(Request $request, Market $market): View
     {
         $market->load(['group', 'rentPeriods']);
-        $contractStartMonth = $market->lease_start_date->format('Y-m');
-        $contractEndMonth = $market->lease_end_date?->format('Y-m');
-        $defaultMonth = now()->format('Y-m');
-        if ($defaultMonth < $contractStartMonth) {
-            $defaultMonth = $contractStartMonth;
-        } elseif ($contractEndMonth !== null && $defaultMonth > $contractEndMonth) {
-            $defaultMonth = $contractEndMonth;
-        }
-
-        $from = $request->query('from', $defaultMonth);
-        $to = $request->query('to', $defaultMonth);
-        $rangeError = null;
-        $months = 0;
-        $rentTotal = 0.0;
-        $paidTotal = 0.0;
-        $unpaidTotal = 0.0;
-        $untrackedTotal = 0.0;
-        $vacantMonths = 0;
-        $rentPeriods = $market->rentPeriods()->orderBy('start_month')->get();
-        $rentPeriodData = $rentPeriods->map(fn ($period) => [
-            'start' => $period->start_month,
-            'end' => $period->end_month,
-            'rent' => (float) $period->monthly_rent,
-            'status' => $period->status,
-        ])->all();
-        $validated = validator(['from' => $from, 'to' => $to], [
-            'from' => ['required', 'date_format:Y-m'],
-            'to' => ['required', 'date_format:Y-m'],
-        ], [
-            'from.date_format' => 'اختر شهر بداية صحيحاً.',
-            'to.date_format' => 'اختر شهر نهاية صحيحاً.',
-        ])->validate();
-        $from = $validated['from'];
-        $to = $validated['to'];
-
-        if ($from > $to) {
-            $rangeError = 'يجب أن يكون شهر البداية قبل شهر النهاية أو مساوياً له.';
-        } else {
-            $overlapStart = $from > $contractStartMonth ? $from : $contractStartMonth;
-            $overlapEnd = $contractEndMonth !== null && $to > $contractEndMonth ? $contractEndMonth : $to;
-
-            if ($overlapStart <= $overlapEnd) {
-                [$startYear, $startMonth] = array_map('intval', explode('-', $overlapStart));
-                [$endYear, $endMonth] = array_map('intval', explode('-', $overlapEnd));
-                $months = (($endYear - $startYear) * 12) + ($endMonth - $startMonth) + 1;
-                $cursor = $overlapStart;
-                while ($cursor <= $overlapEnd) {
-                    $period = $rentPeriods->first(fn ($candidate) => $candidate->start_month <= $cursor && ($candidate->end_month === null || $candidate->end_month >= $cursor));
-                    if ($period === null) {
-                        $rentTotal += (float) $market->monthly_rent;
-                        $untrackedTotal += (float) $market->monthly_rent;
-                    } elseif ($period->status === 'vacant') {
-                        $vacantMonths++;
-                    } else {
-                        $rentTotal += (float) $period->monthly_rent;
-                        if ($period->status === 'paid') {
-                            $paidTotal += (float) $period->monthly_rent;
-                        } else {
-                            $unpaidTotal += (float) $period->monthly_rent;
-                        }
-                    }
-
-                    [$cursorYear, $cursorMonth] = array_map('intval', explode('-', $cursor));
-                    $cursor = sprintf('%04d-%02d', $cursorYear + ($cursorMonth === 12 ? 1 : 0), $cursorMonth === 12 ? 1 : $cursorMonth + 1);
-                }
-                $rentTotal = round($rentTotal, 2);
-                $paidTotal = round($paidTotal, 2);
-                $unpaidTotal = round($unpaidTotal, 2);
-                $untrackedTotal = round($untrackedTotal, 2);
-            }
-        }
-
-        return view('markets.show', compact(
-            'market', 'from', 'to', 'months', 'rentTotal', 'rangeError', 'contractStartMonth', 'contractEndMonth',
-            'rentPeriodData', 'rentPeriods', 'paidTotal', 'unpaidTotal', 'untrackedTotal', 'vacantMonths',
-        ));
+        $firstYear = AnnualLease::firstYear($market);
+        $lastYear = AnnualLease::lastYear($market);
+        $defaultYear = min($lastYear, max($firstYear, AnnualLease::currentYear($market)));
+        $data = $request->validate([
+            'from' => ['nullable', 'integer', 'between:'.$firstYear.','.max($firstYear, $lastYear)],
+            'to' => ['nullable', 'integer', 'between:'.$firstYear.','.max($firstYear, $lastYear)],
+        ]);
+        $from = (int) ($data['from'] ?? $defaultYear);
+        $to = (int) ($data['to'] ?? $defaultYear);
+        $rangeError = $from > $to ? 'يجب أن تكون سنة البداية قبل سنة النهاية أو مساوية لها.' : null;
+        $rows = $rangeError ? [] : AnnualLease::ledger($market, $from, $to);
+        $totals = AnnualLease::totals($rows);
+        return view('markets.show', compact('market', 'from', 'to', 'firstYear', 'lastYear', 'rangeError', 'rows', 'totals'));
     }
 
     public function edit(Market $market): View
@@ -156,7 +96,7 @@ class MarketController extends Controller
 
     public function update(Request $request, Market $market): RedirectResponse
     {
-        $data = $this->validatedData($request, false);
+        $data = $this->validatedData($request, false, $market);
         $data['is_active'] = $request->boolean('is_active');
         $data['is_demo'] = $request->boolean('is_demo');
         if ($request->hasFile('image')) {
@@ -181,25 +121,42 @@ class MarketController extends Controller
         return redirect()->route('groups.show', $group)->with('success', 'تم حذف السوق.');
     }
 
-    private function validatedData(Request $request, bool $requireImage): array
+    private function validatedData(Request $request, bool $requireImage, ?Market $market = null): array
     {
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:160'],
             'area' => ['required', 'numeric', 'min:0.01', 'max:9999999999.99'],
             'lessor' => ['required', 'string', 'max:180'],
-            'monthly_rent' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
-            'lease_start_date' => ['required', 'date'],
-            'lease_end_date' => ['nullable', 'date', 'after_or_equal:lease_start_date'],
+            'annual_rent' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
+            'lease_start_date' => ['required', 'date_format:Y-m-d'],
+            'lease_end_year' => ['nullable', 'integer', 'min:1900', 'max:9999'],
             'market_group_id' => ['nullable', 'exists:market_groups,id'],
             'description' => ['nullable', 'string', 'max:3000'],
             'image' => [$requireImage ? 'required' : 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [], [
             'name' => 'اسم السوق', 'area' => 'المساحة', 'lessor' => 'الجهة المؤجرة',
-            'monthly_rent' => 'قيمة الإيجار الشهري', 'lease_start_date' => 'تاريخ بداية الإيجار',
+            'annual_rent' => 'قيمة الإيجار السنوي', 'lease_start_date' => 'تاريخ بداية الإيجار',
             'lease_end_date' => 'تاريخ نهاية العقد', 'image' => 'صورة السوق', 'description' => 'ملاحظات',
         ]);
 
-        unset($validated['image']);
+        $start = Carbon::parse($validated['lease_start_date']);
+        if ($start->lt(AnnualLease::earliestDate()) && $validated['lease_start_date'] !== $market?->lease_start_date?->toDateString()) {
+            throw ValidationException::withMessages(['lease_start_date' => 'يمكن إدخال الإيجار بأثر رجعي حتى خمس سنوات فقط.']);
+        }
+        $endYear = $validated['lease_end_year'] ?? null;
+        if ($endYear !== null && (int) $endYear <= $start->year) {
+            throw ValidationException::withMessages(['lease_end_year' => 'اختر سنة نهاية بعد سنة بداية العقد.']);
+        }
+        $validated['lease_end_date'] = $endYear === null ? null : $start->copy()->addYearsNoOverflow((int) $endYear - $start->year)->toDateString();
+        if ($market !== null && $market->rentPeriods()->exists()) {
+            if ($start->toDateString() !== $market->lease_start_date->toDateString()) {
+                throw ValidationException::withMessages(['lease_start_date' => 'راجع فترات الإيجار المسجلة واحذفها قبل تغيير بداية العقد.']);
+            }
+            if ($endYear !== null && $market->rentPeriods()->where(fn ($query) => $query->where('start_year', '>=', $endYear)->orWhere('end_year', '>=', $endYear))->exists()) {
+                throw ValidationException::withMessages(['lease_end_year' => 'توجد فترات إيجار تتجاوز نهاية العقد المختارة.']);
+            }
+        }
+        unset($validated['image'], $validated['lease_end_year']);
 
         return $validated;
     }

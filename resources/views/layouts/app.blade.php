@@ -4,16 +4,15 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'لوحة الأصول') — أسواق JDF</title>
+    <title>@yield('title', 'لوحة التحكم') — الشؤون الادارية- توثيق وترخيص ممتلكات</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <link rel="stylesheet" href="{{ asset('css/markets.css') }}">
     <link rel="stylesheet" href="{{ asset('css/settings.css') }}">
     <link rel="icon" href="{{ asset('images/jdf_logo.png') }}" type="image/png">
     <script defer src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script defer src="{{ asset('js/month-picker.js') }}?v={{ filemtime(public_path('js/month-picker.js')) }}"></script>
 </head>
 <body>
     @if(session('success') || $errors->any())
@@ -28,11 +27,12 @@
         <aside class="sidebar" id="sidebar">
             <a class="brand" href="{{ route('dashboard') }}">
                 <span class="brand-logo"><img src="{{ asset('images/jdf_logo.png') }}" alt="شعار الأسواق الحرة الأردنية"></span>
-                <span class="brand-copy"><b>إدارة الأصول</b><small>الأسواق الحرة الأردنية</small></span>
+                <span class="brand-copy"><b>الشؤون الادارية- توثيق وترخيص ممتلكات</b><small>الأسواق الحرة الأردنية</small></span>
             </a>
 
             <div class="nav-caption">القائمة الرئيسية</div>
             <nav class="side-nav">
+                <a href="{{ route('reports.index') }}" class="nav-link {{ request()->routeIs('reports.*') ? 'active' : '' }}"><i data-lucide="file-chart-column"></i><span>التقارير</span></a>
                 <a href="{{ route('dashboard') }}" class="nav-link {{ request()->routeIs('dashboard') ? 'active' : '' }}">
                     <i data-lucide="layout-dashboard"></i><span>لوحة التحكم</span>
                 </a>
@@ -70,21 +70,21 @@
             <header class="topbar">
                 <div class="topbar-start">
                     <button class="mobile-menu" onclick="openSidebar()" aria-label="فتح القائمة"><i data-lucide="menu"></i></button>
-                    <div class="breadcrumb">إدارة الأصول <span>/</span> @yield('crumb', 'الرئيسية')</div>
+                    <div class="breadcrumb">الشؤون الادارية- توثيق وترخيص ممتلكات <span>/</span> @yield('crumb', 'الرئيسية')</div>
                 </div>
                 <div class="topbar-end">
                     <form class="top-search" action="{{ route('markets.index') }}" method="GET">
                         <i data-lucide="search"></i><input name="search" value="{{ request('search') }}" placeholder="ابحث عن سوق أو جهة مؤجرة" aria-label="بحث عن سوق">
                         <kbd>⌘ K</kbd>
                     </form>
-                    <div class="today-chip"><span class="today-dot"></span><span>نظام الأصول</span></div>
+                    <div class="today-chip"><span class="today-dot"></span><span>توثيق وترخيص ممتلكات</span></div>
                 </div>
             </header>
 
             <section class="page-wrap">
                 @yield('content')
             </section>
-            <footer class="footer"><span>الأسواق الحرة الأردنية</span><span>إدارة الأصول والعقود <b>•</b> JDF</span></footer>
+            <footer class="footer"><span>الأسواق الحرة الأردنية</span><span>الشؤون الادارية- توثيق وترخيص ممتلكات <b>•</b> JDF</span></footer>
         </main>
     </div>
 
