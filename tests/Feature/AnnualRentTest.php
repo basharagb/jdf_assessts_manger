@@ -118,7 +118,7 @@ class AnnualRentTest extends TestCase
     {
         $market = Market::factory()->create();
         $this->actingAs(User::factory()->create())->get(route('markets.edit', $market))->assertOk()->assertSee('name="lease_end_year"', false)->assertSee('type="date"', false)->assertDontSee('monthly_rent');
-        $this->get(route('markets.rent-details.create', $market))->assertOk()->assertSee('name="start_year"', false);
+        $this->get(route('markets.rent-details.create', $market))->assertOk()->assertSee('name="start_year"', false)->assertDontSee('2024 / 2025');
         $this->get(route('dashboard'))->assertOk()->assertSee('إجمالي الإيجار السنوي');
     }
 

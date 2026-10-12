@@ -32,7 +32,7 @@ class ReportsTest extends TestCase
         $market = Market::factory()->create(['name' => 'سوق جابر', 'lease_start_date' => '2022-03-01', 'lease_end_date' => '2025-03-01', 'description' => '<script>alert(1)</script>']);
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
             ->assertSee('سوق جابر')->assertSee('01/03/2022')->assertSee('01/03/2025')
-            ->assertSee('2022 / 2023')->assertSee('2024 / 2025')->assertSee('15,000.00')
+            ->assertSee('<td>2022</td>', false)->assertSee('<td>2024</td>', false)->assertDontSee('2022 / 2023')->assertSee('15,000.00')
             ->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false)->assertDontSee('<script>alert(1)</script>', false);
     }
 
@@ -62,7 +62,7 @@ class ReportsTest extends TestCase
     {
         $this->travelTo(Carbon::parse('2026-02-01', 'Asia/Amman'));
         $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => null]);
-        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()->assertSee('2025 / 2026')->assertDontSee('2026 / 2027');
+        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()->assertSee('<td>2025</td>', false)->assertDontSee('<td>2026</td>', false);
     }
 
     public function test_pdf_report_includes_photos_for_multiple_markets_without_excessive_pages(): void
