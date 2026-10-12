@@ -3,11 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Market extends Model
 {
+    /** @use HasFactory<\Database\Factories\MarketFactory> */
+    use HasFactory;
+
     protected $fillable = [
         'market_group_id', 'name', 'area', 'lessor', 'annual_rent',
         'lease_start_date', 'lease_end_date', 'image_path', 'description', 'is_active', 'is_demo',
