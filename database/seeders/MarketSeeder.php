@@ -18,6 +18,7 @@ class MarketSeeder extends Seeder
         $markets = [
             [
                 'group' => 'north', 'name' => 'سوق جابر (القادمون والمغادرون)', 'area' => 100,
+                'sections' => ['القادمون', 'المغادرون'],
                 'image' => 'markets/demo/jaber.jpg',
                 'description' => 'موقع حقيقي: يقع سوق جابر شمال عمّان ويخدم المسافرين بين الأردن وسوريا. الموقع الرسمي يذكر سوقي القادمين والمغادرين. المساحة والجهة المؤجرة والإيجار وتاريخ العقد بيانات ديمو. الصورة من زيارة منشورة لسوق جابر على موقع JDF.',
             ],
@@ -33,6 +34,7 @@ class MarketSeeder extends Seeder
             ],
             [
                 'group' => 'center', 'name' => 'سوق جسر الملك حسين (القادمون والمغادرون)', 'area' => 100,
+                'sections' => ['القادمون', 'المغادرون'],
                 'image' => 'markets/demo/king-hussein-bridge.jpg',
                 'description' => 'موقع حقيقي غرب عمّان على جسر الملك حسين، ويضم سوقي القادمين والمغادرين لخدمة المسافرين بين الأردن وفلسطين. المساحة والجهة المؤجرة والإيجار وتاريخ العقد بيانات ديمو. الصورة من زيارة منشورة للسوق على موقع JDF.',
             ],
@@ -43,11 +45,13 @@ class MarketSeeder extends Seeder
             ],
             [
                 'group' => 'south', 'name' => 'سوق العمري (القادمون والمغادرون والشحن)', 'area' => 100,
+                'sections' => ['القادمون', 'المغادرون', 'الشحن'],
                 'image' => 'markets/demo/omari.jpg',
                 'description' => 'موقع حقيقي جنوب شرق عمّان على الحدود الأردنية السعودية، ويضم القادمين والمغادرين والشحن بحسب موقع JDF. المساحة والجهة المؤجرة والإيجار وتاريخ العقد بيانات ديمو. الصورة من زيارة منشورة لسوق العمري على موقع JDF.',
             ],
             [
                 'group' => 'south', 'name' => 'سوق المدورة (المسافرون والشحن)', 'area' => 100,
+                'sections' => ['المسافرون', 'الشحن'],
                 'image' => 'markets/demo/jdf-generic-shop.jpg',
                 'description' => 'موقع حقيقي جنوب عمّان على الحدود الأردنية السعودية، ويخدم المسافرين والحجاج عبر صالتي المسافرين والشحن. المساحة والجهة المؤجرة والإيجار وتاريخ العقد بيانات ديمو. الصورة تمثيلية من الملف التعريفي الرسمي لـJDF وليست صورة مخصصة لهذا الموقع.',
             ],
@@ -78,6 +82,7 @@ class MarketSeeder extends Seeder
             ],
             [
                 'group' => 'south', 'name' => 'سوق المعبر الجنوبي (القادمون والمغادرون)', 'area' => 100,
+                'sections' => ['القادمون', 'المغادرون'],
                 'image' => 'markets/demo/jdf-generic-shop.jpg',
                 'description' => 'موقع حقيقي في معبر العقبة الجنوبي لخدمة المسافرين بين العقبة وإيلات بحسب موقع JDF الرسمي. المساحة والجهة المؤجرة والإيجار وتاريخ العقد بيانات ديمو. الصورة تمثيلية من الملف التعريفي الرسمي لـJDF وليست صورة مخصصة لهذا الموقع.',
             ],
@@ -94,7 +99,7 @@ class MarketSeeder extends Seeder
                 continue;
             }
 
-            Market::firstOrCreate(
+            $record = Market::firstOrCreate(
                 ['market_group_id' => $groupId, 'name' => $market['name']],
                 [
                     'area' => $market['area'],
@@ -108,6 +113,18 @@ class MarketSeeder extends Seeder
                     'is_demo' => true,
                 ],
             );
+            if (isset($market['sections']) && ! $record->sections()->exists()) {
+                $parts = count($market['sections']);
+                foreach ($market['sections'] as $index => $name) {
+                    $isLast = $index === $parts - 1;
+                    $record->sections()->create([
+                        'name' => $name,
+                        'area' => $isLast ? $market['area'] - round($market['area'] / $parts, 2) * ($parts - 1) : round($market['area'] / $parts, 2),
+                        'annual_rent' => $isLast ? $demoRent - round($demoRent / $parts, 2) * ($parts - 1) : round($demoRent / $parts, 2),
+                        'sort_order' => $index,
+                    ]);
+                }
+            }
         }
     }
 }

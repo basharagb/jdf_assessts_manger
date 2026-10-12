@@ -57,10 +57,10 @@ class AnnualRentTest extends TestCase
     {
         $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
         $market = Market::factory()->create(['lease_start_date' => '2022-03-01', 'lease_end_date' => '2025-03-01']);
-        $market->rentPeriods()->create(['start_year' => 2022, 'end_year' => 2022, 'annual_rent' => 5000, 'status' => 'paid']);
-        $market->rentPeriods()->create(['start_year' => 2023, 'end_year' => 2023, 'annual_rent' => 6000, 'status' => 'unpaid']);
-        $market->rentPeriods()->create(['start_year' => 2024, 'end_year' => 2024, 'annual_rent' => 0, 'status' => 'vacant']);
-        $this->actingAs(User::factory()->create())->get(route('markets.show', ['market' => $market, 'from' => 2022, 'to' => 2024]))
+        $market->rentPeriods()->create(['start_year' => 2022, 'end_year' => 2023, 'annual_rent' => 5000, 'status' => 'paid']);
+        $market->rentPeriods()->create(['start_year' => 2023, 'end_year' => 2024, 'annual_rent' => 6000, 'status' => 'unpaid']);
+        $market->rentPeriods()->create(['start_year' => 2024, 'end_year' => 2025, 'annual_rent' => 0, 'status' => 'vacant']);
+        $this->actingAs(User::factory()->create())->get(route('markets.show', ['market' => $market, 'from' => 2022, 'to' => 2025]))
             ->assertOk()->assertViewHas('totals', ['years' => 3, 'total' => 11000, 'paid' => 5000, 'unpaid' => 6000, 'untracked' => 0, 'vacant' => 1]);
         $this->assertSame(0.0, $market->currentAnnualRent());
     }
@@ -76,7 +76,7 @@ class AnnualRentTest extends TestCase
     {
         $this->travelTo(Carbon::parse('2026-02-01', 'Asia/Amman'));
         $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => '2027-03-01']);
-        $market->rentPeriods()->create(['start_year' => 2025, 'end_year' => 2025, 'annual_rent' => 7000, 'status' => 'paid']);
+        $market->rentPeriods()->create(['start_year' => 2025, 'end_year' => 2026, 'annual_rent' => 7000, 'status' => 'paid']);
         $market->rentPeriods()->create(['start_year' => 2026, 'end_year' => null, 'annual_rent' => 9000, 'status' => 'paid']);
         $this->assertSame(7000.0, $market->currentAnnualRent());
         $this->travelTo(Carbon::parse('2026-03-01', 'Asia/Amman'));
@@ -87,18 +87,39 @@ class AnnualRentTest extends TestCase
     {
         $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
         $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => '2028-03-01']);
-        $market->rentPeriods()->create(['start_year' => 2024, 'end_year' => 2025, 'annual_rent' => 5000, 'status' => 'paid']);
+        $market->rentPeriods()->create(['start_year' => 2024, 'end_year' => 2026, 'annual_rent' => 5000, 'status' => 'paid']);
         $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
-            'start_year' => 2025, 'end_year' => 2026, 'annual_rent' => 7000, 'status' => 'paid',
+            'start_year' => 2025, 'end_year' => 2027, 'annual_rent' => 7000, 'status' => 'paid',
         ])->assertSessionHasErrors(['start_year']);
         $this->assertDatabaseCount('market_rent_periods', 1);
+    }
+
+    public function test_next_period_can_start_in_the_year_the_previous_one_ends(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2021-10-08', 'lease_end_date' => '2027-10-08']);
+        $this->actingAs(User::factory()->create());
+        $this->post(route('markets.rent-details.store', $market), ['start_year' => 2022, 'end_year' => 2023, 'annual_rent' => 5000, 'status' => 'paid'])->assertSessionHasNoErrors();
+        $this->post(route('markets.rent-details.store', $market), ['start_year' => 2023, 'end_year' => 2024, 'annual_rent' => 5200, 'status' => 'unpaid'])->assertSessionHasNoErrors();
+        $this->assertDatabaseCount('market_rent_periods', 2);
+        $this->get(route('markets.show', ['market' => $market, 'from' => 2022, 'to' => 2024]))
+            ->assertOk()->assertViewHas('totals', ['years' => 2, 'total' => 10200, 'paid' => 5000, 'unpaid' => 5200, 'untracked' => 0, 'vacant' => 0]);
+    }
+
+    public function test_period_end_year_must_follow_its_start_year(): void
+    {
+        $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => '2028-03-01']);
+        $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
+            'start_year' => 2025, 'end_year' => 2025, 'annual_rent' => 5000, 'status' => 'paid',
+        ])->assertSessionHasErrors(['end_year']);
+        $this->assertDatabaseCount('market_rent_periods', 0);
     }
 
     public function test_rent_period_is_saved_annually_and_vacancy_has_no_rent(): void
     {
         $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => '2028-03-01']);
         $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
-            'start_year' => 2025, 'end_year' => 2025, 'status' => 'vacant',
+            'start_year' => 2025, 'end_year' => 2026, 'status' => 'vacant',
         ])->assertSessionHasNoErrors()->assertRedirect(route('markets.rent-details.index', $market));
         $this->assertDatabaseHas('market_rent_periods', ['market_id' => $market->id, 'start_year' => 2025, 'annual_rent' => 0]);
     }
@@ -140,17 +161,21 @@ class AnnualRentTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
         $market = Market::factory()->create(['lease_start_date' => '2020-03-01', 'lease_end_date' => '2028-03-01']);
         $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
-            'start_year' => 2021, 'end_year' => 2021, 'annual_rent' => 5000, 'status' => 'paid',
+            'start_year' => 2021, 'end_year' => 2022, 'annual_rent' => 5000, 'status' => 'paid',
         ])->assertSessionHasErrors(['start_year' => 'يمكن التسجيل بأثر رجعي حتى خمس سنوات فقط.']);
         $this->assertDatabaseCount('market_rent_periods', 0);
     }
 
-    public function test_expiry_year_cannot_be_saved_as_an_additional_rental_year(): void
+    public function test_period_can_end_on_contract_expiry_but_not_after_it(): void
     {
         $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => '2027-03-01']);
         $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
-            'start_year' => 2025, 'end_year' => 2027, 'annual_rent' => 5000, 'status' => 'paid',
+            'start_year' => 2025, 'end_year' => 2028, 'annual_rent' => 5000, 'status' => 'paid',
         ])->assertSessionHasErrors(['end_year']);
         $this->assertDatabaseCount('market_rent_periods', 0);
+        $this->post(route('markets.rent-details.store', $market), [
+            'start_year' => 2025, 'end_year' => 2027, 'annual_rent' => 5000, 'status' => 'paid',
+        ])->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('market_rent_periods', ['market_id' => $market->id, 'start_year' => 2025, 'end_year' => 2027]);
     }
 }
