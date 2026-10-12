@@ -6,6 +6,7 @@ use App\Http\Controllers\MarketController;
 use App\Http\Controllers\MarketGroupController;
 use App\Http\Controllers\MarketRentPeriodController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\ReportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => auth()->check() ? redirect()->route('dashboard') : redirect()->route('login'));
@@ -20,6 +21,15 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::get('/settings', [SettingsController::class, 'edit'])->name('settings.edit');
     Route::put('/settings/password', [SettingsController::class, 'updatePassword'])->name('settings.password.update');
+    Route::put('/settings/whatsapp', [SettingsController::class, 'updateWhatsApp'])->name('settings.whatsapp.update');
+    Route::get('/settings/whatsapp/status', [SettingsController::class, 'whatsappStatus'])->name('settings.whatsapp.status');
+    Route::get('/settings/whatsapp/qr', [SettingsController::class, 'whatsappQr'])->middleware('throttle:12,1')->name('settings.whatsapp.qr');
+    Route::post('/settings/whatsapp/connect', [SettingsController::class, 'connectWhatsApp'])->middleware('throttle:6,1')->name('settings.whatsapp.connect');
+    Route::post('/settings/whatsapp/disconnect', [SettingsController::class, 'disconnectWhatsApp'])->name('settings.whatsapp.disconnect');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+    Route::get('/reports/all', [ReportController::class, 'all'])->name('reports.all');
+    Route::get('/reports/markets/{market}', [ReportController::class, 'market'])->name('reports.market');
+    Route::get('/reports/groups/{marketGroup:slug}', [ReportController::class, 'group'])->name('reports.group');
     Route::get('/market-groups', [MarketGroupController::class, 'index'])->name('groups.index');
     Route::get('/market-groups/create', [MarketGroupController::class, 'create'])->name('groups.create');
     Route::post('/market-groups', [MarketGroupController::class, 'store'])->name('groups.store');
