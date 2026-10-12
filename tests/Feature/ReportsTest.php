@@ -36,6 +36,26 @@ class ReportsTest extends TestCase
             ->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;', false)->assertDontSee('<script>alert(1)</script>', false);
     }
 
+    public function test_single_market_report_names_the_store_instead_of_counting_markets(): void
+    {
+        $market = Market::factory()->create(['name' => 'سوق جابر']);
+        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
+            ->assertSee('<strong class="store-name">سوق جابر</strong>', false)
+            ->assertDontSee('عدد الأسواق')->assertDontSee('المدفوع: 0.00 د.أ')->assertDontSee('«بلا تفاصيل سداد» لا تعني مدفوعاً');
+        $this->get(route('reports.group', $market->group))->assertOk()->assertSee('عدد الأسواق')->assertSee('«بلا تفاصيل سداد» لا تعني مدفوعاً');
+    }
+
+    public function test_report_lists_each_section_of_a_split_market(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2025-10-08', 'lease_end_date' => '2027-10-08']);
+        $market->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 3000]);
+        $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2000, 'sort_order' => 1]);
+        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
+            ->assertSee('أقسام السوق')->assertSee('<td>القادمون</td>', false)->assertSee('<td>المغادرون</td>', false)->assertSee('10,000.00');
+        $this->get(route('reports.market', ['market' => $market, 'format' => 'pdf']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    }
+
     public function test_group_report_only_includes_markets_from_that_group(): void
     {
         $group = MarketGroup::factory()->create(['name' => 'أسواق الشمال']);
