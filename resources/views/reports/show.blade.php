@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{ $title }}</title>
+<style>
+@font-face{font-family:cairo;src:url('{{ asset('fonts/Cairo-Regular.ttf') }}')}@font-face{font-family:cairo;src:url('{{ asset('fonts/Cairo-Bold.ttf') }}');font-weight:bold}
+@page{size:A4;margin:12mm 10mm 16mm}*{box-sizing:border-box}body{font-family:cairo,DejaVu Sans,sans-serif;direction:rtl;text-align:right;color:#1e293b;line-height:1.6;font-size:11px;background:#eef2f7;margin:0}.paper{max-width:900px;margin:24px auto;background:white;padding:30px}.brand-bar{background:#0f172a;color:white;padding:14px;border-radius:8px 8px 0 0}.brand-logo{width:70px;vertical-align:middle;margin-left:15px}.brand-copy{font-size:14px}.title-bar{background:#f1f5f9;border-right:5px solid #2563eb;border-left:5px solid #2563eb;text-align:center;padding:15px}.title-bar h1{font-size:24px;color:#1e40af;margin:0}.meta-bar{border:1px solid #e2e8f0;padding:10px 14px;margin-bottom:18px;color:#64748b}.stats{width:100%;border-spacing:6px;margin-bottom:18px;table-layout:fixed}.stats td{text-align:center;padding:12px 6px;border-radius:8px;color:white}.stats strong{display:block;font-size:19px}.blue{background:#2563eb}.green{background:#059669}.purple{background:#6d28d9}.orange{background:#d97706}.section-title{background:#f1f5f9;border-right:4px solid #2563eb;padding:8px 14px;font-size:15px;color:#1e293b}.data{width:100%;border-collapse:collapse;margin:12px 0;table-layout:fixed}.data th{background:#f1f5f9;color:#475569}.data th,.data td{padding:8px 6px;text-align:right;border-bottom:1px solid #e2e8f0;overflow-wrap:anywhere}.data tr:nth-child(even){background:#f8fafc}.market-cover{width:100%;max-height:250px;object-fit:cover;border-radius:8px}.cover-box{text-align:center;background:#f1f5f9;padding:10px;border-radius:8px}.market-title{text-align:center;font-size:25px;color:#1e40af;margin:12px 0 3px}.market-group{text-align:center;color:#64748b;margin:0 0 16px}.note{background:#eff6ff;border-right:3px solid #2563eb;padding:10px 14px;margin:14px 0;white-space:pre-line}.market-report{break-before:page;page-break-before:always}.market-report:first-of-type{break-before:auto;page-break-before:auto}.totals{background:#f1f5f9;padding:10px 14px;color:#1e40af}.toolbar{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:16px}.toolbar a,.toolbar button{font:inherit;color:white;background:#2563eb;border:0;border-radius:8px;padding:10px 20px;text-decoration:none;cursor:pointer}thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}h2,h3{break-after:avoid;page-break-after:avoid}.footer{text-align:center;margin-top:20px;color:#64748b;font-size:10px}
+@media print{body{background:white}.paper{margin:0;padding:0;max-width:none}.toolbar{display:none}.stats td,.brand-bar,.title-bar,.section-title{print-color-adjust:exact;-webkit-print-color-adjust:exact}}@media(max-width:600px){.paper{margin:0;padding:14px}.data{font-size:9px}.stats strong{font-size:14px}.brand-copy{font-size:11px}}
+</style></head>
+<body>
+@if(!$pdf)<div class="toolbar"><a href="{{ route('reports.index') }}">العودة للتقارير</a><button onclick="window.print()">طباعة</button><a href="{{ request()->fullUrlWithQuery(['format' => 'pdf']) }}">تحميل / عرض PDF</a></div>@endif
+<div class="paper">
+<div class="brand-bar">@if($logo)<img class="brand-logo" src="{{ $logo }}" alt="شعار JDF">@endif<span class="brand-copy">الشؤون الادارية- توثيق وترخيص ممتلكات<br>الأسواق الحرة الأردنية</span></div>
+<div class="title-bar"><h1>{{ $title }}</h1></div>
+<div class="meta-bar">تاريخ التقرير: {{ now()->timezone('Asia/Amman')->format('d/m/Y H:i') }} | إعداد: {{ auth()->user()->name }}</div>
+<table class="stats"><tr><td class="blue">عدد الأسواق<strong>{{ $summary['count'] }}</strong></td><td class="green">الأسواق النشطة<strong>{{ $summary['active'] }}</strong></td><td class="purple">الإيجار السنوي الحالي<strong>{{ number_format($summary['annual'], 2) }}</strong> د.أ</td><td class="orange">إجمالي إيجارات السنوات<strong>{{ number_format($summary['total'], 2) }}</strong> د.أ</td></tr></table>
+@if($entries->count() > 1)
+<h2 class="section-title">ملخص المناطق والأقسام</h2>
+<table class="data"><thead><tr><th>المنطقة</th><th>الأسواق</th><th>المساحة م²</th><th>الإيجار السنوي الحالي د.أ</th><th>إجمالي السنوات د.أ</th></tr></thead><tbody>@foreach($groupSummaries as $group)<tr><td>{{ $group['name'] }}</td><td>{{ $group['count'] }}</td><td>{{ number_format($group['area'], 2) }}</td><td>{{ number_format($group['annual'], 2) }}</td><td>{{ number_format($group['total'], 2) }}</td></tr>@endforeach</tbody></table>
+@endif
+<div class="totals">المدفوع: {{ number_format($summary['paid'], 2) }} د.أ | غير المدفوع: {{ number_format($summary['unpaid'], 2) }} د.أ | بلا تفاصيل سداد: {{ number_format($summary['untracked'], 2) }} د.أ</div>
+<p class="note">المبالغ محسوبة سنوياً حسب ذكرى بداية العقد. للعقود محددة النهاية يعرض التقرير كامل سنوات العقد؛ للعقود المفتوحة يعرض حتى سنة الإيجار الحالية. «بلا تفاصيل سداد» لا تعني مدفوعاً. يشمل التقرير السجلات المؤرشفة مع توضيح حالتها.</p>
+@foreach($entries as $entry)
+@php($market = $entry['market'])
+<article class="market-report" @if($pdf && $entries->count() > 1)style="page-break-before:always"@endif>
+@if($entry['image'])<div class="cover-box"><img class="market-cover" src="{{ $entry['image'] }}" alt="صورة {{ $market->name }}" @if($pdf)style="width:170mm;height:auto;max-height:65mm"@endif></div>@else<div class="cover-box">لا توجد صورة محفوظة لهذا السوق</div>@endif
+<h2 class="market-title">{{ $market->name }}</h2><p class="market-group">{{ $market->group->name }}</p>
+<table class="data"><tbody>
+<tr><th>الجهة المؤجرة</th><td>{{ $market->lessor }}</td><th>المساحة</th><td>{{ number_format((float) $market->area, 2) }} م²</td></tr>
+<tr><th>بداية الإيجار</th><td dir="ltr">{{ $market->lease_start_date->format('d/m/Y') }}</td><th>نهاية العقد</th><td dir="ltr">{{ $market->lease_end_date?->format('d/m/Y') ?? 'غير محددة' }}</td></tr>
+<tr><th>الإيجار السنوي الأساسي</th><td>{{ number_format((float) $market->annual_rent, 2) }} د.أ</td><th>الإيجار السنوي الحالي</th><td>{{ number_format($market->currentAnnualRent(), 2) }} د.أ</td></tr>
+<tr><th>الحالة</th><td>{{ $market->is_active ? 'نشط' : 'مؤرشف' }}</td><th>مصدر البيانات</th><td>{{ $market->is_demo ? 'ديمو يحتاج مراجعة' : 'بيانات مسجلة' }}</td></tr>
+</tbody></table>
+@if($market->description)<div class="note"><b>ملاحظات السوق والعقد</b><br>{{ $market->description }}</div>@endif
+<h3 class="section-title">سنوات الإيجار وحالة السداد</h3>
+<table class="data"><thead><tr><th style="width:13%">سنة الإيجار</th><th style="width:16%">البداية</th><th style="width:16%">النهاية</th><th style="width:15%">الإيجار د.أ</th><th style="width:17%">السداد</th><th>ملاحظات</th></tr></thead><tbody>
+@forelse($entry['rows'] as $row)<tr><td>{{ $row['year'] }} / {{ $row['year'] + 1 }}</td><td dir="ltr">{{ \Illuminate\Support\Carbon::parse($row['start'])->format('d/m/Y') }}</td><td dir="ltr">{{ \Illuminate\Support\Carbon::parse($row['end'])->format('d/m/Y') }}</td><td>{{ number_format($row['amount'], 2) }}</td><td>{{ ['paid' => 'مدفوع', 'unpaid' => 'غير مدفوع', 'vacant' => 'إخلاء', 'untracked' => 'بلا تفاصيل سداد'][$row['status']] }}</td><td>{{ $row['notes'] ?? '—' }}</td></tr>@empty<tr><td colspan="6">لم تبدأ سنة الإيجار الأولى بعد.</td></tr>@endforelse
+</tbody></table>
+@if($market->rentPeriods->isNotEmpty())
+<h3 class="section-title">الفترات المسجلة</h3><table class="data"><thead><tr><th>من سنة</th><th>إلى سنة (شاملة)</th><th>الإيجار السنوي د.أ</th><th>الحالة</th><th>ملاحظات</th></tr></thead><tbody>@foreach($market->rentPeriods->sortBy('start_year') as $period)<tr><td>{{ $period->start_year }} / {{ $period->start_year + 1 }}</td><td>{{ $period->end_year ? $period->end_year.' / '.($period->end_year + 1) : 'مستمرة' }}</td><td>{{ number_format((float) $period->annual_rent, 2) }}</td><td>{{ ['paid' => 'مدفوع', 'unpaid' => 'غير مدفوع', 'vacant' => 'إخلاء'][$period->status] }}</td><td>{{ $period->notes }}</td></tr>@endforeach</tbody></table>
+@endif
+<div class="totals">إجمالي السوق: {{ number_format($entry['totals']['total'], 2) }} د.أ | المدفوع: {{ number_format($entry['totals']['paid'], 2) }} | غير المدفوع: {{ number_format($entry['totals']['unpaid'], 2) }} | بلا تفاصيل سداد: {{ number_format($entry['totals']['untracked'], 2) }} | إخلاء: {{ $entry['totals']['vacant'] }} سنة</div>
+</article>
+@endforeach
+@if($entries->isEmpty())<p>لا توجد أسواق ضمن هذا التقرير.</p>@endif
+<div class="footer">الشؤون الادارية- توثيق وترخيص ممتلكات | الأسواق الحرة الأردنية</div>
+</div></body></html>

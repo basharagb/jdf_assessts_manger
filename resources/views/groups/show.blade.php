@@ -5,6 +5,7 @@
 <div class="page-intro region-intro" style="--accent:{{ $marketGroup->accent }}">
     <div class="intro-icon"><i data-lucide="map-pin"></i></div>
     <div class="intro-copy"><div class="breadcrumbs"><a href="{{ route('dashboard') }}">لوحة التحكم</a><i data-lucide="chevron-left"></i><span>{{ $marketGroup->name }}</span></div><h1>{{ $marketGroup->name }}</h1><p>إدارة الأسواق والأصول والعقود التابعة لهذه المنطقة.</p></div>
+    <a class="button button-outline" href="{{ route('reports.group', $marketGroup) }}" target="_blank" rel="noopener"><i data-lucide="file-text"></i> تقرير المنطقة</a>
     <a class="button button-primary" href="{{ route('markets.create', $marketGroup) }}"><i data-lucide="plus"></i> إضافة سوق جديد</a>
 </div>
 

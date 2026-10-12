@@ -22,7 +22,8 @@ const {
 
 const app = express();
 const PORT = Number(process.env.WA_SERVICE_PORT || 3001);
-const API_KEY = process.env.WA_API_KEY || 'connectra-wa-test-key';
+const API_KEY = process.env.WA_API_KEY;
+if (!API_KEY) { throw new Error('WA_API_KEY is required'); }
 const INSTANCE_NAME = String(process.env.WA_INSTANCE_NAME || '')
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, '');
@@ -36,12 +37,13 @@ const CONFIG_FILE = process.env.WA_CONFIG_FILE
 const POLL_STORE_FILE = process.env.WA_POLL_STORE_FILE
     ? path.resolve(process.env.WA_POLL_STORE_FILE)
     : path.join(__dirname, 'poll-store' + INSTANCE_SUFFIX + '.json');
+const RECEIPTS_FILE = path.join(__dirname, 'send-receipts' + INSTANCE_SUFFIX + '.json');
 const AUTH_DIR = process.env.WA_AUTH_DIR
     ? path.resolve(process.env.WA_AUTH_DIR)
     : path.join(__dirname, 'auth_info' + INSTANCE_SUFFIX);
 const logger = pino({ level: process.env.WA_LOG_LEVEL || 'silent' });
 
-app.use(cors({ origin: true }));
+// Laravel proxies authenticated requests; browser access is not required.
 app.use(express.json({ limit: '1mb' }));
 
 const sendLimiter = rateLimit({
@@ -126,6 +128,8 @@ function hasPollMessageContent(message) {
         || message?.pollCreationMessageV3
     );
 }
+
+const sendReceipts = loadJson(RECEIPTS_FILE, {});
 
 let runtimeConfig = loadJson(CONFIG_FILE, {
     serverWebhookUrl: '',
@@ -764,6 +768,17 @@ app.post('/whatsapp/send', requireApiKey, sendLimiter, async (req, res) => {
         });
     }
 
+    const receiptKey = String(req.headers['idempotency-key'] || '');
+    if (!/^contract-[0-9]+$/.test(receiptKey)) {
+        return res.status(400).json({ error: 'A contract reminder idempotency key is required.' });
+    }
+    if (sendReceipts[receiptKey]?.result) {
+        return res.json(sendReceipts[receiptKey].result);
+    }
+    if (sendReceipts[receiptKey]) {
+        return res.status(409).json({ error: 'Previous send requires manual verification.' });
+    }
+
     const to = String(req.body?.to || '').trim();
     const jid = normalizeChatId(to);
     if (!jid) {
@@ -776,6 +791,8 @@ app.post('/whatsapp/send', requireApiKey, sendLimiter, async (req, res) => {
     }
 
     try {
+        sendReceipts[receiptKey] = { status: 'pending', to };
+        saveJson(RECEIPTS_FILE, sendReceipts);
         const result = await sock.sendMessage(jid, outgoing.content);
         if (outgoing.type === 'poll') {
             rememberPollMessage(result);
@@ -783,12 +800,15 @@ app.post('/whatsapp/send', requireApiKey, sendLimiter, async (req, res) => {
 
         logMessage('outgoing', jid, outgoing.preview, result?.key?.id || null);
 
-        res.json({
+        const payload = {
             success: true,
             messageId: result?.key?.id || null,
             to: jid,
             type: outgoing.type,
-        });
+        };
+        sendReceipts[receiptKey] = { status: 'sent', result: payload };
+        saveJson(RECEIPTS_FILE, sendReceipts);
+        res.json(payload);
     } catch (error) {
         logMessage('outgoing_error', jid, outgoing.preview, error.message || String(error));
         res.status(500).json({
@@ -832,7 +852,7 @@ app.get('/whatsapp/logs', requireApiKey, (req, res) => {
     res.json(logs);
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, process.env.WA_BIND_ADDRESS || '127.0.0.1', () => {
     console.log('[WA Service] Running on http://127.0.0.1:' + PORT);
     console.log('[WA Service] For internal testing only.');
 
