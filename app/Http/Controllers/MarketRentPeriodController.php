@@ -32,14 +32,15 @@ class MarketRentPeriodController extends Controller
     public function create(Request $request, Market $market): View
     {
         $market->load(['sections', 'rentPeriods']);
-        $sectionId = $market->hasSections() ? ($market->sections->firstWhere('id', $request->integer('section'))?->id ?? $market->sections->first()->id) : null;
-        $latestEnd = $market->rentPeriods->where('market_section_id', $sectionId)->max('end_year');
+        $section = $market->hasSections() ? ($market->sections->firstWhere('id', $request->integer('section')) ?? $market->sections->first()) : null;
+        $latestEnd = $market->rentPeriods->where('market_section_id', $section?->id)->max('end_year');
         $startYear = min(AnnualLease::lastYear($market), max(AnnualLease::firstYear($market), (int) $latestEnd));
 
         return $this->form($market, new MarketRentPeriod([
-            'market_section_id' => $sectionId,
+            'market_section_id' => $section?->id,
             'start_year' => $startYear,
             'end_year' => $startYear + 1,
+            'annual_rent' => $section?->annual_rent ?? $market->annual_rent,
             'status' => 'paid',
         ]));
     }
