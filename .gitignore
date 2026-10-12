@@ -32,3 +32,5 @@ Thumbs.db
 /whatsapp-service/poll-store*.json
 /whatsapp-service/send-receipts*.json
 /whatsapp-service/.env
+
+/whatsapp-service/.npm-cache

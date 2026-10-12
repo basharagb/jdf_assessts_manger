@@ -83,13 +83,13 @@ class ReportController extends Controller
         $mpdf = new Mpdf([
             'mode' => 'utf-8', 'format' => 'A4', 'margin_left' => 10, 'margin_right' => 10,
             'margin_top' => 12, 'margin_bottom' => 16, 'tempDir' => $temp,
-            'default_font' => 'cairo', 'fontDir' => [...$fontDirs, public_path('fonts')],
+            'use_kwt' => true, 'default_font' => 'cairo', 'fontDir' => [...$fontDirs, public_path('fonts')],
             'fontdata' => $fontData + ['cairo' => ['R' => 'Cairo-Regular.ttf', 'B' => 'Cairo-Bold.ttf', 'useOTL' => 0xFF, 'useKashida' => 75]],
         ]);
         $mpdf->SetDirectionality('rtl');
         $mpdf->SetTitle($title);
         $mpdf->SetAuthor('الشؤون الادارية- توثيق وترخيص ممتلكات');
-        $mpdf->SetHTMLFooter('<div style="text-align:center;font-size:9px;color:#64748b">الأسواق الحرة الأردنية | {PAGENO} / {nbpg}</div>');
+        $mpdf->SetHTMLFooter('<div style="text-align:center;font-size:9px;color:#64748b">الأسواق الحرة الأردنية | <span dir="ltr">{PAGENO} / {nbpg}</span></div>');
         $mpdf->WriteHTML(view('reports.show', $data)->render());
 
         return response($mpdf->Output('', Destination::STRING_RETURN), 200, [
