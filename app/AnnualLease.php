@@ -21,6 +21,7 @@ class AnnualLease
     public static function currentYear(Market $market): int
     {
         $today = Carbon::today('Asia/Amman');
+
         return $today->lt(self::anniversary($market, $today->year)) ? $today->year - 1 : $today->year;
     }
 
@@ -28,6 +29,7 @@ class AnnualLease
     {
         $cutoff = self::earliestDate();
         $year = max($market->lease_start_date->year, $cutoff->year);
+
         return self::anniversary($market, $year)->lt($cutoff) ? $year + 1 : $year;
     }
 
@@ -37,6 +39,7 @@ class AnnualLease
             return max(Carbon::today('Asia/Amman')->year + 10, $market->lease_start_date->year + 10);
         }
         $year = $market->lease_end_date->year;
+
         return self::anniversary($market, $year)->gte($market->lease_end_date) ? $year - 1 : $year;
     }
 
@@ -50,12 +53,13 @@ class AnnualLease
             $rows[] = [
                 'year' => $year,
                 'start' => self::anniversary($market, $year)->toDateString(),
-                'end' => self::anniversary($market, $year + 1)->toDateString(),
+                'end' => ($market->lease_end_date !== null && self::anniversary($market, $year + 1)->gt($market->lease_end_date) ? $market->lease_end_date : self::anniversary($market, $year + 1))->toDateString(),
                 'amount' => $period?->status === 'vacant' ? 0.0 : (float) ($period?->annual_rent ?? $market->annual_rent),
                 'status' => $period?->status ?? 'untracked',
                 'notes' => $period?->notes,
             ];
         }
+
         return $rows;
     }
 
@@ -77,6 +81,7 @@ class AnnualLease
         foreach (['total', 'paid', 'unpaid', 'untracked'] as $key) {
             $totals[$key] /= 100;
         }
+
         return $totals;
     }
 }
