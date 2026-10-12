@@ -2,20 +2,35 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use App\AnnualLease;
+use Carbon\CarbonInterface;
+use Database\Factories\MarketFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 class Market extends Model
 {
-    /** @use HasFactory<\Database\Factories\MarketFactory> */
+    /** @use HasFactory<MarketFactory> */
     use HasFactory;
 
     protected $fillable = [
         'market_group_id', 'name', 'area', 'lessor', 'annual_rent',
         'lease_start_date', 'lease_end_date', 'image_path', 'description', 'is_active', 'is_demo',
     ];
+
+    protected function leaseStartDate(): Attribute
+    {
+        return Attribute::make(set: fn (CarbonInterface|string|null $value): ?string => $value === null ? null : Carbon::parse($value)->toDateString());
+    }
+
+    protected function leaseEndDate(): Attribute
+    {
+        return Attribute::make(set: fn (CarbonInterface|string|null $value): ?string => $value === null ? null : Carbon::parse($value)->toDateString());
+    }
 
     protected function casts(): array
     {
@@ -41,11 +56,12 @@ class Market extends Model
 
     public function currentAnnualRent(): float
     {
-        $today = \Illuminate\Support\Carbon::today('Asia/Amman');
+        $today = Carbon::today('Asia/Amman');
         if ($today->lt($this->lease_start_date) || ($this->lease_end_date !== null && $today->gte($this->lease_end_date))) {
             return 0.0;
         }
-        $rows = \App\AnnualLease::ledger($this, \App\AnnualLease::currentYear($this), \App\AnnualLease::currentYear($this));
+        $rows = AnnualLease::ledger($this, AnnualLease::currentYear($this), AnnualLease::currentYear($this));
+
         return $rows[0]['amount'] ?? 0.0;
     }
 }
