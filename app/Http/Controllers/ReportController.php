@@ -28,21 +28,21 @@ class ReportController extends Controller
 
     public function market(Request $request, Market $market): View|Response
     {
-        return $this->report($request, 'تقرير '.$market->name, collect([$market->load(['group', 'rentPeriods'])]), 'market-'.$market->id);
+        return $this->report($request, 'تقرير '.$market->name, collect([$market->load(['group', 'sections', 'rentPeriods'])]), 'market-'.$market->id, true);
     }
 
     public function group(Request $request, MarketGroup $marketGroup): View|Response
     {
-        return $this->report($request, 'تقرير '.$marketGroup->name, $marketGroup->markets()->with(['group', 'rentPeriods'])->orderBy('name')->get(), 'group-'.$marketGroup->slug);
+        return $this->report($request, 'تقرير '.$marketGroup->name, $marketGroup->markets()->with(['group', 'sections', 'rentPeriods'])->orderBy('name')->get(), 'group-'.$marketGroup->slug);
     }
 
     public function all(Request $request): View|Response
     {
-        return $this->report($request, 'التقرير الشامل لجميع الأسواق والمناطق', Market::with(['group', 'rentPeriods'])->orderBy('market_group_id')->orderBy('name')->get(), 'all-markets');
+        return $this->report($request, 'التقرير الشامل لجميع الأسواق والمناطق', Market::with(['group', 'sections', 'rentPeriods'])->orderBy('market_group_id')->orderBy('name')->get(), 'all-markets');
     }
 
     /** @param Collection<int, Market> $markets */
-    private function report(Request $request, string $title, Collection $markets, string $filename): View|Response
+    private function report(Request $request, string $title, Collection $markets, string $filename, bool $isSingleMarket = false): View|Response
     {
         $request->validate(['format' => ['nullable', 'in:pdf']]);
         $entries = $markets->map(function (Market $market) use ($request): array {
@@ -72,7 +72,7 @@ class ReportController extends Controller
         ]);
         $pdf = $request->query('format') === 'pdf';
         $logo = $this->image(null, public_path('images/jdf_logo.png'));
-        $data = compact('title', 'entries', 'summary', 'groupSummaries', 'pdf', 'logo');
+        $data = compact('title', 'entries', 'summary', 'groupSummaries', 'pdf', 'logo', 'isSingleMarket');
         if (! $pdf) {
             return view('reports.show', $data);
         }

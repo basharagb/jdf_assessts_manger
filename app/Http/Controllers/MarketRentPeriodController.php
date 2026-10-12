@@ -18,17 +18,28 @@ class MarketRentPeriodController extends Controller
 
     public function index(Market $market): View
     {
+        $market->load(['group', 'sections', 'rentPeriods' => fn ($query) => $query->orderBy('start_year')]);
+
         return view('markets.rent-details', [
-            'market' => $market->load('group'),
-            'periods' => $market->rentPeriods()->orderBy('start_year')->get(),
+            'market' => $market,
+            'periodGroups' => $market->hasSections()
+                ? $market->sections->map(fn ($section): array => ['section' => $section, 'periods' => $market->rentPeriods->where('market_section_id', $section->id)->values()])
+                : collect([['section' => null, 'periods' => $market->rentPeriods]]),
             'statusLabels' => $this->statusLabels(),
         ]);
     }
 
-    public function create(Market $market): View
+    public function create(Request $request, Market $market): View
     {
+        $market->load(['sections', 'rentPeriods']);
+        $sectionId = $market->hasSections() ? ($market->sections->firstWhere('id', $request->integer('section'))?->id ?? $market->sections->first()->id) : null;
+        $latestEnd = $market->rentPeriods->where('market_section_id', $sectionId)->max('end_year');
+        $startYear = min(AnnualLease::lastYear($market), max(AnnualLease::firstYear($market), (int) $latestEnd));
+
         return $this->form($market, new MarketRentPeriod([
-            'start_year' => AnnualLease::firstYear($market),
+            'market_section_id' => $sectionId,
+            'start_year' => $startYear,
+            'end_year' => $startYear + 1,
             'status' => 'paid',
         ]));
     }
@@ -36,7 +47,7 @@ class MarketRentPeriodController extends Controller
     public function store(Request $request, Market $market): RedirectResponse
     {
         DB::transaction(function () use ($request, $market): void {
-            $lockedMarket = Market::query()->lockForUpdate()->findOrFail($market->id);
+            $lockedMarket = Market::query()->with('sections')->lockForUpdate()->findOrFail($market->id);
             $lockedMarket->rentPeriods()->create($this->validatedPeriod($request, $lockedMarket));
         });
 
@@ -47,14 +58,14 @@ class MarketRentPeriodController extends Controller
     {
         $this->ensurePeriodBelongsToMarket($market, $rentPeriod);
 
-        return $this->form($market, $rentPeriod);
+        return $this->form($market->load('sections'), $rentPeriod);
     }
 
     public function update(Request $request, Market $market, MarketRentPeriod $rentPeriod): RedirectResponse
     {
         $this->ensurePeriodBelongsToMarket($market, $rentPeriod);
         DB::transaction(function () use ($request, $market, $rentPeriod): void {
-            $lockedMarket = Market::query()->lockForUpdate()->findOrFail($market->id);
+            $lockedMarket = Market::query()->with('sections')->lockForUpdate()->findOrFail($market->id);
             $lockedPeriod = $lockedMarket->rentPeriods()->lockForUpdate()->findOrFail($rentPeriod->id);
             $lockedPeriod->update($this->validatedPeriod($request, $lockedMarket, $lockedPeriod));
         });
@@ -72,46 +83,56 @@ class MarketRentPeriodController extends Controller
 
     private function form(Market $market, MarketRentPeriod $rentPeriod): View
     {
+        $pickerMin = min(AnnualLease::firstYear($market), $rentPeriod->start_year ?? AnnualLease::firstYear($market));
+        $pickerMax = AnnualLease::lastYear($market);
+
         return view('markets.rent-period-form', [
             'market' => $market->load('group'),
             'rentPeriod' => $rentPeriod,
             'statusLabels' => $this->statusLabels(),
-            'pickerMin' => min(AnnualLease::firstYear($market), $rentPeriod->start_year ?? AnnualLease::firstYear($market)),
-            'pickerMax' => AnnualLease::lastYear($market),
+            'pickerMin' => $pickerMin,
+            'pickerMax' => $pickerMax,
+            'anniversaries' => AnnualLease::anniversaryLabels($market, $pickerMin, $pickerMax + 1),
         ]);
     }
 
+    /**
+     * @return array{market_section_id: ?int, start_year: int, end_year: ?int, annual_rent: float|string|int, status: string, notes: ?string}
+     */
     private function validatedPeriod(Request $request, Market $market, ?MarketRentPeriod $rentPeriod = null): array
     {
         $data = $request->validate([
+            'market_section_id' => $market->hasSections() ? ['required', 'integer', Rule::in($market->sections->modelKeys())] : ['exclude'],
             'start_year' => ['required', 'integer', 'between:1900,9998'],
-            'end_year' => ['nullable', 'integer', 'between:1900,9998'],
+            'end_year' => ['nullable', 'integer', 'between:1901,9999'],
             'annual_rent' => ['required_unless:status,vacant', 'nullable', 'numeric', 'min:0', 'max:999999999999.99'],
             'status' => ['required', Rule::in(self::STATUSES)],
             'notes' => ['nullable', 'string', 'max:2000'],
-        ]);
+        ], [], ['market_section_id' => 'القسم']);
+        $data['market_section_id'] = isset($data['market_section_id']) ? (int) $data['market_section_id'] : null;
         $data['start_year'] = (int) $data['start_year'];
         $data['end_year'] = isset($data['end_year']) ? (int) $data['end_year'] : null;
         $leaseStart = $market->lease_start_date->year;
-        $leaseEnd = AnnualLease::lastYear($market);
-        if ($data['start_year'] < $leaseStart || $data['start_year'] > $leaseEnd) {
+        $lastYear = AnnualLease::lastYear($market);
+        if ($data['start_year'] < $leaseStart || $data['start_year'] > $lastYear) {
             throw ValidationException::withMessages(['start_year' => 'يجب أن تقع سنة الإيجار ضمن مدة عقد السوق.']);
         }
         if (AnnualLease::anniversary($market, $data['start_year'])->lt(AnnualLease::earliestDate()) && $data['start_year'] !== $rentPeriod?->start_year) {
             throw ValidationException::withMessages(['start_year' => 'يمكن التسجيل بأثر رجعي حتى خمس سنوات فقط.']);
         }
-        if ($data['end_year'] !== null && ($data['end_year'] < $data['start_year'] || $data['end_year'] > $leaseEnd)) {
-            throw ValidationException::withMessages(['end_year' => 'اختر سنة نهاية ضمن العقد وبعد سنة البداية أو مساوية لها.']);
+        if ($data['end_year'] !== null && ($data['end_year'] <= $data['start_year'] || $data['end_year'] > $lastYear + 1)) {
+            throw ValidationException::withMessages(['end_year' => 'اختر سنة نهاية بعد سنة البداية وضمن مدة العقد. مثال: من 2022 إلى 2023 = سنة إيجار واحدة.']);
         }
 
-        $rangeEnd = $data['end_year'] ?? 9999;
-        $overlaps = $market->rentPeriods()
-            ->where('start_year', '<=', $rangeEnd)
-            ->where(fn ($query) => $query->whereNull('end_year')->orWhere('end_year', '>=', $data['start_year']))
+        $overlapping = $market->rentPeriods()
+            ->when($data['market_section_id'], fn ($query, int $sectionId) => $query->where('market_section_id', $sectionId), fn ($query) => $query->whereNull('market_section_id'))
+            ->when($data['end_year'], fn ($query, int $endYear) => $query->where('start_year', '<', $endYear))
+            ->where(fn ($query) => $query->whereNull('end_year')->orWhere('end_year', '>', $data['start_year']))
             ->when($rentPeriod, fn ($query) => $query->whereKeyNot($rentPeriod->id))
-            ->exists();
-        if ($overlaps) {
-            throw ValidationException::withMessages(['start_year' => 'تتداخل هذه الفترة مع فترة إيجار مسجلة. عدّل الفترة الموجودة أو اختر سنوات مختلفة.']);
+            ->orderBy('start_year')
+            ->first();
+        if ($overlapping !== null) {
+            throw ValidationException::withMessages(['start_year' => 'تتداخل هذه الفترة مع الفترة المسجلة '.$overlapping->start_year.' ← '.($overlapping->end_year ?? 'مستمرة').'. يمكن أن تبدأ الفترة التالية في سنة نهاية الفترة السابقة.']);
         }
 
         $data['annual_rent'] = $data['status'] === 'vacant' ? 0 : $data['annual_rent'];

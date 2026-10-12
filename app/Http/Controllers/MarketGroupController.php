@@ -68,7 +68,7 @@ class MarketGroupController extends Controller
 
     public function show(MarketGroup $marketGroup): View
     {
-        $markets = $marketGroup->markets()->with(['group', 'rentPeriods'])->latest()->paginate(9);
+        $markets = $marketGroup->markets()->with(['group', 'sections', 'rentPeriods'])->latest()->paginate(9);
 
         return view('groups.show', compact('marketGroup', 'markets'));
     }

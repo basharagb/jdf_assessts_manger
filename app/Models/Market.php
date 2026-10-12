@@ -54,14 +54,34 @@ class Market extends Model
         return $this->hasMany(MarketRentPeriod::class);
     }
 
-    public function currentAnnualRent(): float
+    /**
+     * Separate halls of the same market, such as arrivals and departures, each with its own area and rent.
+     * A market without sections is a single unit.
+     */
+    public function sections(): HasMany
+    {
+        return $this->hasMany(MarketSection::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function hasSections(): bool
+    {
+        return $this->sections->isNotEmpty();
+    }
+
+    /** @return array<int|string, float> current annual rent keyed by section id, or 'market' for a single unit */
+    public function currentRentBySection(): array
     {
         $today = Carbon::today('Asia/Amman');
         if ($today->lt($this->lease_start_date) || ($this->lease_end_date !== null && $today->gte($this->lease_end_date))) {
-            return 0.0;
+            return [];
         }
-        $rows = AnnualLease::ledger($this, AnnualLease::currentYear($this), AnnualLease::currentYear($this));
+        $year = AnnualLease::currentYear($this);
 
-        return $rows[0]['amount'] ?? 0.0;
+        return collect(AnnualLease::ledger($this, $year, $year))->mapWithKeys(fn (array $row): array => [$row['section_id'] ?? 'market' => $row['amount']])->all();
+    }
+
+    public function currentAnnualRent(): float
+    {
+        return round(array_sum($this->currentRentBySection()), 2);
     }
 }
