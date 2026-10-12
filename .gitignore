@@ -25,3 +25,10 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+/whatsapp-service/node_modules
+/whatsapp-service/auth_info*
+/whatsapp-service/service-config*.json
+/whatsapp-service/poll-store*.json
+/whatsapp-service/send-receipts*.json
+/whatsapp-service/.env
