@@ -6,11 +6,13 @@ use App\Models\Market;
 use App\Models\MarketGroup;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
-use Tests\TestCase;
-use setasign\Fpdi\PdfReader\PdfReader;
+use Illuminate\Support\Facades\Storage;
 use setasign\Fpdi\PdfParser\PdfParser;
 use setasign\Fpdi\PdfParser\StreamReader;
+use setasign\Fpdi\PdfReader\PdfReader;
+use Tests\TestCase;
 
 class ReportsTest extends TestCase
 {
@@ -61,5 +63,18 @@ class ReportsTest extends TestCase
         $this->travelTo(Carbon::parse('2026-02-01', 'Asia/Amman'));
         $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => null]);
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()->assertSee('2025 / 2026')->assertDontSee('2026 / 2027');
+    }
+
+    public function test_pdf_report_includes_photos_for_multiple_markets_without_excessive_pages(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        Storage::fake('public');
+        $path = UploadedFile::fake()->image('market.jpg', 1600, 900)->store('markets', 'public');
+        Market::factory()->count(3)->create(['image_path' => $path]);
+        $response = $this->actingAs(User::factory()->create())->get(route('reports.all', ['format' => 'pdf']))
+            ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringContainsString('/Subtype /Image', $response->getContent());
+        $pages = (new PdfReader(new PdfParser(StreamReader::createByString($response->getContent()))))->getPageCount();
+        $this->assertLessThanOrEqual(7, $pages);
     }
 }

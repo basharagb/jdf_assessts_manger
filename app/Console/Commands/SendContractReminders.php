@@ -15,6 +15,7 @@ use Throwable;
 class SendContractReminders extends Command
 {
     protected $signature = 'contracts:send-reminders {--dry-run : List eligible contracts without sending messages}';
+
     protected $description = 'Send one WhatsApp reminder per recipient within 90 days of contract expiry';
 
     public function handle(WhatsAppWebClient $client): int
@@ -22,6 +23,7 @@ class SendContractReminders extends Command
         $settings = WhatsAppSetting::current();
         if (! $settings->enabled) {
             $this->info('Contract reminders are disabled.');
+
             return self::SUCCESS;
         }
         $today = Carbon::today('Asia/Amman');
@@ -29,11 +31,13 @@ class SendContractReminders extends Command
             ->whereBetween('lease_end_date', [$today->toDateString(), $today->copy()->addDays(90)->toDateString()]);
         if ($this->option('dry-run')) {
             $this->info('Eligible contracts: '.$markets->count().'; recipients: '.count($settings->recipients()));
+
             return self::SUCCESS;
         }
         $lock = Cache::lock('contracts:send-reminders', 3600);
         if (! $lock->get()) {
             $this->warn('Another reminder run is active.');
+
             return self::SUCCESS;
         }
         $failed = false;
@@ -70,6 +74,7 @@ class SendContractReminders extends Command
         } finally {
             $lock->release();
         }
+
         return $failed ? self::FAILURE : self::SUCCESS;
     }
 }

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class WhatsAppSetting extends Model
 {
     public const PRIMARY_NUMBER = '962770911991';
+
     protected $fillable = ['enabled', 'additional_numbers'];
 
     protected function casts(): array

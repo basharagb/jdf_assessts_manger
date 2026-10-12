@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\WhatsAppSetting;
 use App\Models\ContractReminder;
+use App\Models\WhatsAppSetting;
 use App\WhatsAppWebClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Throwable;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Throwable;
 
 class SettingsController extends Controller
 {
@@ -45,6 +45,7 @@ class SettingsController extends Controller
 
         return to_route('settings.edit')->with('success', 'تم تغيير كلمة المرور بنجاح.');
     }
+
     public function updateWhatsApp(Request $request): RedirectResponse
     {
         $numbers = array_values(array_filter(array_map(
@@ -66,6 +67,7 @@ class SettingsController extends Controller
             'enabled' => $request->boolean('enabled'),
             'additional_numbers' => $data['additional_numbers'],
         ]);
+
         return to_route('settings.edit')->with('success', 'تم حفظ إعدادات تنبيهات العقود.');
     }
 
@@ -73,9 +75,11 @@ class SettingsController extends Controller
     {
         try {
             $status = $client->status();
+
             return response()->json($status)->header('Cache-Control', 'no-store');
         } catch (Throwable $exception) {
             report($exception);
+
             return response()->json(['connected' => false, 'status' => 'unavailable', 'message' => 'خدمة واتساب غير متاحة. راجع تشغيل الخدمة وإعداداتها.'], 503);
         }
     }
@@ -86,6 +90,7 @@ class SettingsController extends Controller
             return response()->json($client->qr())->header('Cache-Control', 'no-store');
         } catch (Throwable $exception) {
             report($exception);
+
             return response()->json(['message' => 'تعذر تحميل رمز QR. أعد المحاولة بعد تشغيل الخدمة.'], 503);
         }
     }
@@ -94,9 +99,11 @@ class SettingsController extends Controller
     {
         try {
             $client->connect();
+
             return to_route('settings.edit')->with('success', 'افتح واتساب على الهاتف ← الأجهزة المرتبطة ← ربط جهاز، ثم امسح الرمز.');
         } catch (Throwable $exception) {
             report($exception);
+
             return to_route('settings.edit')->withErrors(['whatsapp' => 'تعذر الاتصال بخدمة واتساب.']);
         }
     }
@@ -105,9 +112,11 @@ class SettingsController extends Controller
     {
         try {
             $client->disconnect();
+
             return to_route('settings.edit')->with('success', 'تم فصل جلسة واتساب.');
         } catch (Throwable $exception) {
             report($exception);
+
             return to_route('settings.edit')->withErrors(['whatsapp' => 'تعذر فصل جلسة واتساب.']);
         }
     }

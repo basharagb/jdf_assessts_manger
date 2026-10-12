@@ -7,8 +7,8 @@ use App\Models\Market;
 use App\Models\MarketGroup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
@@ -82,6 +82,7 @@ class MarketController extends Controller
         $rangeError = $from > $to ? 'يجب أن تكون سنة البداية قبل سنة النهاية أو مساوية لها.' : null;
         $rows = $rangeError ? [] : AnnualLease::ledger($market, $from, $to);
         $totals = AnnualLease::totals($rows);
+
         return view('markets.show', compact('market', 'from', 'to', 'firstYear', 'lastYear', 'rangeError', 'rows', 'totals'));
     }
 

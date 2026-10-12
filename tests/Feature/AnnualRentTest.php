@@ -121,4 +121,36 @@ class AnnualRentTest extends TestCase
         $this->get(route('markets.rent-details.create', $market))->assertOk()->assertSee('name="start_year"', false);
         $this->get(route('dashboard'))->assertOk()->assertSee('إجمالي الإيجار السنوي');
     }
+
+    public function test_exact_five_year_boundary_is_allowed(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        Storage::fake('public');
+        $group = MarketGroup::factory()->create();
+        $this->actingAs(User::factory()->create())->post(route('markets.store', $group), [
+            'name' => 'سوق الحدود', 'area' => 100, 'lessor' => 'الجهة المؤجرة', 'annual_rent' => 5000,
+            'lease_start_date' => '2021-10-12', 'lease_end_year' => 2027,
+            'image' => UploadedFile::fake()->image('market.jpg'),
+        ])->assertSessionHasNoErrors()->assertRedirect();
+        $this->assertDatabaseHas('markets', ['lease_start_date' => '2021-10-12', 'lease_end_date' => '2027-10-12']);
+    }
+
+    public function test_new_rent_period_older_than_five_years_is_rejected(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2020-03-01', 'lease_end_date' => '2028-03-01']);
+        $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
+            'start_year' => 2021, 'end_year' => 2021, 'annual_rent' => 5000, 'status' => 'paid',
+        ])->assertSessionHasErrors(['start_year' => 'يمكن التسجيل بأثر رجعي حتى خمس سنوات فقط.']);
+        $this->assertDatabaseCount('market_rent_periods', 0);
+    }
+
+    public function test_expiry_year_cannot_be_saved_as_an_additional_rental_year(): void
+    {
+        $market = Market::factory()->create(['lease_start_date' => '2024-03-01', 'lease_end_date' => '2027-03-01']);
+        $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
+            'start_year' => 2025, 'end_year' => 2027, 'annual_rent' => 5000, 'status' => 'paid',
+        ])->assertSessionHasErrors(['end_year']);
+        $this->assertDatabaseCount('market_rent_periods', 0);
+    }
 }

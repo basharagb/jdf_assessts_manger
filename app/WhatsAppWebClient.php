@@ -14,6 +14,7 @@ class WhatsAppWebClient
         if (! is_string($key) || $key === '') {
             throw new RuntimeException('WhatsApp service API key is not configured.');
         }
+
         return Http::acceptJson()->connectTimeout(3)->timeout(30)
             ->baseUrl(rtrim(config('services.whatsapp.url'), '/'))
             ->withHeaders(['x-api-key' => $key]);
@@ -49,6 +50,7 @@ class WhatsAppWebClient
         if ($response->json('success') !== true) {
             throw new RuntimeException('WhatsApp service did not confirm sending.');
         }
+
         return $response->json();
     }
 }
