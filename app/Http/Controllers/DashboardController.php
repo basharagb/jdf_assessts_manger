@@ -17,7 +17,7 @@ class DashboardController extends Controller
         foreach ($groups as $group) {
             $group->setAttribute('active_rent_sum', $activeMarkets
                 ->where('market_group_id', $group->id)
-                ->sum(fn (Market $market) => $market->rentForMonth()));
+                ->sum(fn (Market $market) => $market->currentAnnualRent()));
         }
 
         return view('dashboard.index', [
@@ -25,7 +25,7 @@ class DashboardController extends Controller
             'marketCount' => $markets->count(),
             'activeCount' => $activeMarkets->count(),
             'demoCount' => $markets->where('is_demo', true)->count(),
-            'monthlyRent' => $activeMarkets->sum(fn (Market $market) => $market->rentForMonth()),
+            'annualRent' => $activeMarkets->sum(fn (Market $market) => $market->currentAnnualRent()),
             'renewalsSoon' => Market::whereNotNull('lease_end_date')
                 ->whereBetween('lease_end_date', [today(), Carbon::today()->addDays(90)])
                 ->where('is_active', true)->count(),

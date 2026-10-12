@@ -99,7 +99,7 @@ class MarketSeeder extends Seeder
                 [
                     'area' => $market['area'],
                     'lessor' => $market['lessor'] ?? $demoLessor,
-                    'monthly_rent' => $demoRent,
+                    'annual_rent' => $demoRent,
                     'lease_start_date' => $demoDate,
                     'lease_end_date' => null,
                     'image_path' => $market['image'],

@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Market extends Model
 {
     protected $fillable = [
-        'market_group_id', 'name', 'area', 'lessor', 'monthly_rent',
+        'market_group_id', 'name', 'area', 'lessor', 'annual_rent',
         'lease_start_date', 'lease_end_date', 'image_path', 'description', 'is_active', 'is_demo',
     ];
 
@@ -17,7 +17,7 @@ class Market extends Model
     {
         return [
             'area' => 'decimal:2',
-            'monthly_rent' => 'decimal:2',
+            'annual_rent' => 'decimal:2',
             'lease_start_date' => 'date',
             'lease_end_date' => 'date',
             'is_active' => 'boolean',
@@ -35,16 +35,13 @@ class Market extends Model
         return $this->hasMany(MarketRentPeriod::class);
     }
 
-    public function rentForMonth(?string $month = null): float
+    public function currentAnnualRent(): float
     {
-        $month ??= now()->format('Y-m');
-        $periods = $this->relationLoaded('rentPeriods') ? $this->getRelation('rentPeriods') : $this->rentPeriods()->get();
-        $period = $periods->first(fn (MarketRentPeriod $candidate) => $candidate->start_month <= $month && ($candidate->end_month === null || $candidate->end_month >= $month));
-
-        if ($period?->status === 'vacant') {
+        $today = \Illuminate\Support\Carbon::today('Asia/Amman');
+        if ($today->lt($this->lease_start_date) || ($this->lease_end_date !== null && $today->gte($this->lease_end_date))) {
             return 0.0;
         }
-
-        return (float) ($period?->monthly_rent ?? $this->monthly_rent);
+        $rows = \App\AnnualLease::ledger($this, \App\AnnualLease::currentYear($this), \App\AnnualLease::currentYear($this));
+        return $rows[0]['amount'] ?? 0.0;
     }
 }
