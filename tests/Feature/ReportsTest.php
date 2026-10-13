@@ -54,7 +54,7 @@ class ReportsTest extends TestCase
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
             ->assertSee('سوقان: القادمون والمغادرون')->assertSee('سوق القادمون')->assertSee('سوق المغادرون')
             ->assertSee('إجمالي سوق القادمون: 6,000.00 د.أ')->assertSee('إجمالي سوق المغادرون: 4,000.00 د.أ')->assertSee('إجمالي السوق: 10,000.00 د.أ')
-            ->assertSee('الإيجار السنوي قبل خمس سنوات')->assertDontSee('تكوين السوق')->assertDontSee('بلا تفاصيل سداد: ');
+            ->assertSee('الإيجار السنوي قبل خمس سنوات')->assertDontSee('تكوين السوق')->assertDontSee('مصدر البيانات')->assertDontSee('بلا تفاصيل سداد: ');
         $this->get(route('reports.market', ['market' => $market, 'format' => 'pdf']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
     }
 

@@ -36,7 +36,7 @@ body{font-family:cairo;font-size:9pt;line-height:1.4;direction:rtl;text-align:ri
 <tr><th>الجهة المؤجرة</th><td>{{ $market->lessor }}</td><th>المساحة</th><td>{{ number_format((float) $market->area, 2) }} م²</td></tr>
 <tr><th>بداية الإيجار</th><td dir="ltr">{{ $market->lease_start_date->format('d/m/Y') }}</td><th>نهاية العقد</th><td dir="ltr">{{ $market->lease_end_date?->format('d/m/Y') ?? 'غير محددة' }}</td></tr>
 <tr><th>الإيجار السنوي قبل خمس سنوات</th><td>{{ number_format((float) $market->annual_rent, 2) }} د.أ</td><th>الإيجار السنوي الحالي</th><td>{{ number_format($market->currentAnnualRent(), 2) }} د.أ</td></tr>
-<tr><th>الحالة</th><td>{{ $market->is_active ? 'نشط' : 'مؤرشف' }}</td><th>مصدر البيانات</th><td>{{ $market->is_demo ? 'ديمو يحتاج مراجعة' : 'بيانات مسجلة' }}</td></tr>
+<tr><th>الحالة</th><td colspan="3">{{ $market->is_active ? 'نشط' : 'مؤرشف' }}</td></tr>
 </tbody></table>
 @if($market->description)<div class="note"><b>ملاحظات السوق والعقد</b><br>{{ $market->description }}</div>@endif
 @foreach($market->hasSections() ? $market->sections : [null] as $section)
