@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\MarketController;
+use App\Http\Controllers\MarketExpansionController;
 use App\Http\Controllers\MarketGroupController;
 use App\Http\Controllers\MarketRentPeriodController;
 use App\Http\Controllers\ReportController;
@@ -47,6 +48,9 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/markets/{market}/rent-details/{rentPeriod}/edit', [MarketRentPeriodController::class, 'edit'])->name('markets.rent-details.edit');
     Route::put('/markets/{market}/rent-details/{rentPeriod}', [MarketRentPeriodController::class, 'update'])->name('markets.rent-details.update');
     Route::delete('/markets/{market}/rent-details/{rentPeriod}', [MarketRentPeriodController::class, 'destroy'])->name('markets.rent-details.destroy');
+    Route::get('/markets/{market}/expansions', [MarketExpansionController::class, 'index'])->name('markets.expansions.index');
+    Route::post('/markets/{market}/expansions', [MarketExpansionController::class, 'store'])->name('markets.expansions.store');
+    Route::delete('/markets/{market}/expansions/{expansion}', [MarketExpansionController::class, 'destroy'])->name('markets.expansions.destroy');
     Route::get('/markets/{market}/edit', [MarketController::class, 'edit'])->name('markets.edit');
     Route::put('/markets/{market}', [MarketController::class, 'update'])->name('markets.update');
     Route::delete('/markets/{market}', [MarketController::class, 'destroy'])->name('markets.destroy');

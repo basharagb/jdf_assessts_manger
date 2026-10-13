@@ -24,7 +24,7 @@ class MarketController extends Controller
 
     public function index(Request $request): View
     {
-        $query = Market::query()->with(['group', 'sections', 'rentPeriods'])->latest();
+        $query = Market::query()->with(['group', 'sections', 'expansions', 'rentPeriods'])->latest();
         $search = trim((string) $request->query('search', ''));
         $groupId = $request->integer('group_id');
 
@@ -80,7 +80,7 @@ class MarketController extends Controller
      */
     public function show(Request $request, Market $market): View
     {
-        $market->load(['group', 'sections', 'rentPeriods']);
+        $market->load(['group', 'sections', 'expansions', 'rentPeriods']);
         $firstYear = AnnualLease::firstYear($market);
         $lastYear = AnnualLease::lastYear($market);
         $defaultYear = min($lastYear, max($firstYear, AnnualLease::currentYear($market)));

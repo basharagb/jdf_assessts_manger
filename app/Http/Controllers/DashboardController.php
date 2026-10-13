@@ -11,7 +11,7 @@ class DashboardController extends Controller
 {
     public function __invoke(): View
     {
-        $markets = Market::query()->with(['sections', 'rentPeriods'])->get();
+        $markets = Market::query()->with(['sections', 'expansions', 'rentPeriods'])->get();
         $activeMarkets = $markets->where('is_active', true);
         $groups = MarketGroup::query()->withCount('markets')->orderBy('id')->get();
         foreach ($groups as $group) {
@@ -29,7 +29,7 @@ class DashboardController extends Controller
             'renewalsSoon' => Market::whereNotNull('lease_end_date')
                 ->whereBetween('lease_end_date', [today(), Carbon::today()->addDays(90)])
                 ->where('is_active', true)->count(),
-            'recentMarkets' => Market::with(['group', 'sections', 'rentPeriods'])->latest()->take(5)->get(),
+            'recentMarkets' => Market::with(['group', 'sections', 'expansions', 'rentPeriods'])->latest()->take(5)->get(),
         ]);
     }
 }

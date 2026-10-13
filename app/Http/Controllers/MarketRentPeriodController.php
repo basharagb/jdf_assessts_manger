@@ -18,7 +18,7 @@ class MarketRentPeriodController extends Controller
 
     public function index(Market $market): View
     {
-        $market->load(['group', 'sections', 'rentPeriods' => fn ($query) => $query->orderBy('start_year')]);
+        $market->load(['group', 'sections', 'expansions', 'rentPeriods' => fn ($query) => $query->orderBy('start_year')]);
 
         return view('markets.rent-details', [
             'market' => $market,
@@ -31,7 +31,7 @@ class MarketRentPeriodController extends Controller
 
     public function create(Request $request, Market $market): View
     {
-        $market->load(['sections', 'rentPeriods']);
+        $market->load(['sections', 'expansions', 'rentPeriods']);
         $section = $market->hasSections() ? ($market->sections->firstWhere('id', $request->integer('section')) ?? $market->sections->first()) : null;
         $latestEnd = $market->rentPeriods->where('market_section_id', $section?->id)->max('end_year');
         $startYear = min(AnnualLease::lastYear($market), max(AnnualLease::firstYear($market), (int) $latestEnd));

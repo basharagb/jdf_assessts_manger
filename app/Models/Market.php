@@ -63,6 +63,11 @@ class Market extends Model
         return $this->hasMany(MarketSection::class)->orderBy('sort_order')->orderBy('id');
     }
 
+    public function expansions(): HasMany
+    {
+        return $this->hasMany(MarketExpansion::class)->orderBy('start_year')->orderBy('id');
+    }
+
     public function hasSections(): bool
     {
         return $this->sections->isNotEmpty();

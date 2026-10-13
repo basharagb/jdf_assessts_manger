@@ -3,6 +3,7 @@
 namespace App;
 
 use App\Models\Market;
+use App\Models\MarketExpansion;
 use App\Models\MarketRentPeriod;
 use App\Models\MarketSection;
 use Illuminate\Support\Carbon;
@@ -58,11 +59,14 @@ class AnnualLease
     /**
      * Rows for each rental year from $from to $to inclusive, one per section for a market split into sections.
      *
-     * @return list<array{year: int, section_id: ?int, section: ?string, start: string, end: string, amount: float, status: string, notes: ?string}>
+     * Expansions add their rent to every year from their start year, on top of the period or base rent.
+     *
+     * @return list<array{year: int, section_id: ?int, section: ?string, start: string, end: string, amount: float, expansion: float, status: string, notes: ?string}>
      */
     public static function ledger(Market $market, int $from, int $to): array
     {
         $periods = $market->relationLoaded('rentPeriods') ? $market->rentPeriods : $market->rentPeriods()->orderBy('start_year')->get();
+        $expansions = $market->expansions;
         $units = $market->hasSections()
             ? $market->sections->map(fn (MarketSection $section): array => ['id' => $section->id, 'name' => $section->name, 'rent' => (float) $section->annual_rent])->all()
             : [['id' => null, 'name' => null, 'rent' => (float) $market->annual_rent]];
@@ -70,13 +74,17 @@ class AnnualLease
         for ($year = max($from, $market->lease_start_date->year); $year <= min($to, self::lastYear($market)); $year++) {
             foreach ($units as $unit) {
                 $period = $periods->first(fn (MarketRentPeriod $period): bool => $period->market_section_id === $unit['id'] && $period->covers($year));
+                $expansionRent = (float) $expansions
+                    ->filter(fn (MarketExpansion $expansion): bool => $expansion->market_section_id === $unit['id'] && $expansion->start_year <= $year)
+                    ->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_annual_rent);
                 $rows[] = [
                     'year' => $year,
                     'section_id' => $unit['id'],
                     'section' => $unit['name'],
                     'start' => self::anniversary($market, $year)->toDateString(),
                     'end' => ($market->lease_end_date !== null && self::anniversary($market, $year + 1)->gt($market->lease_end_date) ? $market->lease_end_date : self::anniversary($market, $year + 1))->toDateString(),
-                    'amount' => $period?->status === 'vacant' ? 0.0 : (float) ($period?->annual_rent ?? $unit['rent']),
+                    'amount' => $period?->status === 'vacant' ? 0.0 : round((float) ($period?->annual_rent ?? $unit['rent']) + $expansionRent, 2),
+                    'expansion' => $period?->status === 'vacant' ? 0.0 : $expansionRent,
                     'status' => $period?->status ?? 'untracked',
                     'notes' => $period?->notes,
                 ];

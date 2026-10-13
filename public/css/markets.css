@@ -23,3 +23,4 @@
 .period-preview{margin:-4px 0 0;padding:10px 12px;border-radius:9px;color:#1e4f8f;background:#f0f6ff;font-size:13px;font-weight:600}.period-preview.is-invalid{color:#b42318;background:#fff1f1}.period-preview:empty{display:none}.rent-period-card p.rent-period-dates{color:#4f6a8a;font-size:12px;font-weight:600}.rent-period-list+.rent-history-summary,.rent-history-empty+.rent-history-summary{margin-top:26px}
 @media(max-width:700px){.detail-cover{aspect-ratio:4/3}.cover-label b{font-size:20px}.unit-choice,.section-input-row{grid-template-columns:1fr}}
 @media(max-width:560px){.info-grid{grid-template-columns:1fr}.section-row{grid-template-columns:repeat(3,minmax(0,1fr))}.section-row>b{grid-column:1/-1}}
+.expansion-form{margin-top:16px}.expansion-form h2{margin:0;color:#263b59;font-size:17px}

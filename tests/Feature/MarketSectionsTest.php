@@ -130,4 +130,42 @@ class MarketSectionsTest extends TestCase
         $this->assertSame(2025, $sameYear->fresh()->end_year);
         $this->assertSame(2026, $range->fresh()->end_year);
     }
+
+    public function test_market_expansion_adds_its_rent_from_its_start_year(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2023-10-08', 'lease_end_date' => '2028-10-08', 'annual_rent' => 5000]);
+        $section = $market->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 3000]);
+        $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2000, 'sort_order' => 1]);
+        $this->actingAs(User::factory()->create());
+
+        $this->post(route('markets.expansions.store', $market), ['start_year' => 2025, 'added_annual_rent' => 1500])->assertSessionHasErrors(['market_section_id']);
+        $this->post(route('markets.expansions.store', $market), ['market_section_id' => $section->id, 'start_year' => 2025, 'added_annual_rent' => 1500, 'added_area' => 20])
+            ->assertSessionHasNoErrors()->assertRedirect(route('markets.expansions.index', $market));
+
+        $this->get(route('markets.show', ['market' => $market, 'from' => 2024, 'to' => 2026]))->assertOk()
+            ->assertViewHas('totals', fn (array $totals): bool => (float) $totals['total'] === 11500.0);
+        $this->assertSame(6500.0, $market->fresh()->currentAnnualRent());
+        $this->get(route('markets.expansions.index', $market))->assertOk()->assertSee('+1,500.00');
+        $this->get(route('reports.market', $market))->assertOk()->assertSee('توسعات السوق — القادمون')->assertSee('منها توسعة 1,500.00');
+    }
+
+    public function test_expansion_of_another_market_cannot_be_deleted(): void
+    {
+        $market = Market::factory()->create();
+        $expansion = Market::factory()->create()->expansions()->create(['start_year' => now()->year, 'added_annual_rent' => 1000]);
+        $this->actingAs(User::factory()->create())->delete(route('markets.expansions.destroy', [$market, $expansion]))->assertNotFound();
+        $this->assertModelExists($expansion);
+    }
+
+    public function test_demo_and_photo_source_sentences_are_removed_from_market_notes(): void
+    {
+        $market = Market::factory()->create(['description' => 'موقع حقيقي: يقع سوق جابر شمال عمّان. المساحة والجهة المؤجرة والإيجار وتاريخ العقد بيانات ديمو. الصورة من زيارة منشورة لسوق جابر على موقع JDF.']);
+        $custom = Market::factory()->create(['description' => 'ملاحظة كتبها المستخدم.']);
+
+        (require database_path('migrations/2026_10_13_102857_remove_demo_notes_from_market_descriptions.php'))->up();
+
+        $this->assertSame('موقع حقيقي: يقع سوق جابر شمال عمّان.', $market->fresh()->description);
+        $this->assertSame('ملاحظة كتبها المستخدم.', $custom->fresh()->description);
+    }
 }
