@@ -94,7 +94,7 @@ class MarketController extends Controller
         $rows = $rangeError ? [] : AnnualLease::ledger($market, $from, $to - 1);
         $totals = AnnualLease::totals($rows);
         $anniversaries = AnnualLease::anniversaryLabels($market, $firstYear, $lastYear + 1);
-        $currentRents = $market->currentRentBySection();
+        $currentRents = $market->displayedRentBySection();
 
         return view('markets.show', compact('market', 'from', 'to', 'firstYear', 'lastYear', 'rangeError', 'rows', 'totals', 'anniversaries', 'currentRents'));
     }

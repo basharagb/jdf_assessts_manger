@@ -50,7 +50,7 @@ class ReportController extends Controller
             $rows = AnnualLease::ledger($market, $market->lease_start_date->year, $lastYear);
 
             return [
-                'market' => $market, 'rows' => $rows, 'totals' => AnnualLease::totals($rows), 'currentRents' => $market->currentRentBySection(),
+                'market' => $market, 'rows' => $rows, 'totals' => AnnualLease::totals($rows), 'currentRents' => $market->displayedRentBySection(),
                 'image' => $request->query('format') === 'pdf' ? $this->pdfImage($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg') : $this->image($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg'),
             ];
         });

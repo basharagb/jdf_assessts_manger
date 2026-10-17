@@ -21,14 +21,14 @@
                 <div class="info-cell"><span class="info-icon info-violet"><i data-lucide="building-2"></i></span><span><small>الجهة المؤجرة</small><b>{{ $market->lessor }}</b></span></div>
                 <div class="info-cell"><span class="info-icon info-amber"><i data-lucide="calendar-days"></i></span><span><small>بداية الإيجار</small><b>{{ $market->lease_start_date->format('Y/m/d') }}</b></span></div>
                 <div class="info-cell"><span class="info-icon info-blue"><i data-lucide="calendar-check-2"></i></span><span><small>نهاية العقد</small><b>{{ $market->lease_end_date?->format('Y/m/d') ?? 'غير محدد' }}</b></span></div>
-                <div class="info-cell"><span class="info-icon info-green"><i data-lucide="wallet"></i></span><span><small>الإيجار السنوي الحالي</small><b>{{ number_format(array_sum($currentRents), 2) }} د.أ</b></span></div>
+                <div class="info-cell"><span class="info-icon info-green"><i data-lucide="wallet"></i></span><span><small>{{ $market->leaseHasEnded() ? 'الإيجار السنوي الأخير (العقد منتهي)' : 'الإيجار السنوي الحالي' }}</small><b>{{ number_format(array_sum($currentRents), 2) }} د.أ</b></span></div>
                 <div class="info-cell"><span class="info-icon info-violet"><i data-lucide="layout-panel-left"></i></span><span><small>تكوين السوق</small><b>{{ $market->hasSections() ? $market->sections->count().' أقسام منفصلة' : 'وحدة واحدة' }}</b></span></div>
             </div>
             @if($market->hasSections())
                 <div class="section-list">
                     <span class="section-list-title">أقسام السوق</span>
                     @foreach($market->sections as $section)
-                        <div class="section-row"><b>{{ $section->name }}</b><span><small>المساحة</small>{{ number_format((float) $section->area, 2) }} م²</span><span><small>الإيجار الأساسي</small>{{ number_format((float) $section->annual_rent, 2) }} د.أ</span><span><small>الإيجار الحالي</small>{{ number_format($currentRents[$section->id] ?? 0, 2) }} د.أ</span></div>
+                        <div class="section-row"><b>{{ $section->name }}</b><span><small>المساحة</small>{{ number_format((float) $section->area, 2) }} م²</span><span><small>الإيجار الأساسي</small>{{ number_format((float) $section->annual_rent, 2) }} د.أ</span><span><small>{{ $market->leaseHasEnded() ? 'الإيجار الأخير' : 'الإيجار الحالي' }}</small>{{ number_format($currentRents[$section->id] ?? 0, 2) }} د.أ</span></div>
                     @endforeach
                 </div>
             @endif

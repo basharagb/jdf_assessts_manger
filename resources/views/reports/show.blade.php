@@ -17,7 +17,7 @@ body{font-family:cairo;font-size:9pt;line-height:1.4;direction:rtl;text-align:ri
 <div class="brand-bar">@if($logo)<img class="brand-logo" src="{{ $logo }}" alt="شعار JDF">@endif<span class="brand-copy">الشؤون الادارية- توثيق وترخيص ممتلكات<br>الأسواق الحرة الأردنية</span></div>
 <div class="title-bar"><h1>{{ $title }}</h1></div>
 <div class="meta-bar">تاريخ التقرير: {{ now()->timezone('Asia/Amman')->format('d/m/Y H:i') }} | إعداد: {{ auth()->user()->name }}</div>
-<table class="stats"><tr>@if($isSingleMarket)<td class="blue">السوق<br><strong class="store-name">{{ $entries->first()['market']->name }}</strong></td>@php($reportMarket = $entries->first()['market'])<td class="green">نوع السوق<br><strong class="store-name">@if($reportMarket->hasSections()){{ $reportMarket->sections->count() === 2 ? 'سوقان' : $reportMarket->sections->count().' أسواق' }}: {{ $reportMarket->sections->pluck('name')->join(' و') }}@else سوق واحد @endif</strong></td>@else<td class="blue">عدد الأسواق<br><strong>{{ $summary['count'] }}</strong></td><td class="green">الأسواق النشطة<br><strong>{{ $summary['active'] }}</strong></td>@endif<td class="purple">الإيجار السنوي الحالي<br><strong>{{ number_format($summary['annual'], 2) }}</strong> د.أ</td><td class="orange">إجمالي إيجارات السنوات<br><strong>{{ number_format($summary['total'], 2) }}</strong> د.أ</td></tr></table>
+<table class="stats"><tr>@if($isSingleMarket)<td class="blue">السوق<br><strong class="store-name">{{ $entries->first()['market']->name }}</strong></td>@php($reportMarket = $entries->first()['market'])<td class="green">نوع السوق<br><strong class="store-name">@if($reportMarket->hasSections()){{ $reportMarket->sections->count() === 2 ? 'سوقان' : $reportMarket->sections->count().' أسواق' }}: {{ $reportMarket->sections->pluck('name')->join(' و') }}@else سوق واحد @endif</strong></td>@else<td class="blue">عدد الأسواق<br><strong>{{ $summary['count'] }}</strong></td><td class="green">الأسواق النشطة<br><strong>{{ $summary['active'] }}</strong></td>@endif<td class="purple">{{ $isSingleMarket && $reportMarket->leaseHasEnded() ? 'الإيجار السنوي الأخير (العقد منتهي)' : 'الإيجار السنوي الحالي' }}<br><strong>{{ number_format($isSingleMarket ? array_sum($entries->first()['currentRents']) : $summary['annual'], 2) }}</strong> د.أ</td><td class="orange">إجمالي إيجارات السنوات<br><strong>{{ number_format($summary['total'], 2) }}</strong> د.أ</td></tr></table>
 @if($entries->count() > 1)
 <h2 class="section-title">ملخص المناطق والأقسام</h2>
 <table class="data"><thead><tr><th>المنطقة</th><th>الأسواق</th><th>المساحة م²</th><th>الإيجار السنوي الحالي د.أ</th><th>إجمالي السنوات د.أ</th></tr></thead><tbody>@foreach($groupSummaries as $group)<tr><td>{{ $group['name'] }}</td><td>{{ $group['count'] }}</td><td>{{ number_format($group['area'], 2) }}</td><td>{{ number_format($group['annual'], 2) }}</td><td>{{ number_format($group['total'], 2) }}</td></tr>@endforeach</tbody></table>
@@ -28,6 +28,7 @@ body{font-family:cairo;font-size:9pt;line-height:1.4;direction:rtl;text-align:ri
 @endunless
 @foreach($entries as $entry)
 @php($market = $entry['market'])
+@php($rentLabel = $market->leaseHasEnded() ? 'الإيجار السنوي الأخير (العقد منتهي)' : 'الإيجار السنوي الحالي')
 <article class="market-report" style="page-break-before:{{ $entries->count() > 1 ? 'always' : 'auto' }}">
 @if($entry['image'])<div class="cover-box"><img class="market-cover" src="{{ $entry['image'] }}" alt="صورة {{ $market->name }}" @if($pdf)style="max-width:185mm;max-height:105mm"@endif></div>@else<div class="cover-box">لا توجد صورة محفوظة لهذا السوق</div>@endif
 <h2 class="market-title">{{ $market->name }}</h2><p class="market-group">{{ $market->group->name }}</p>
@@ -35,7 +36,7 @@ body{font-family:cairo;font-size:9pt;line-height:1.4;direction:rtl;text-align:ri
 <table class="data"><tbody>
 <tr><th>الجهة المؤجرة</th><td>{{ $market->lessor }}</td><th>المساحة</th><td>{{ number_format((float) $market->area, 2) }} م²</td></tr>
 <tr><th>بداية الإيجار</th><td dir="ltr">{{ $market->lease_start_date->format('d/m/Y') }}</td><th>نهاية العقد</th><td dir="ltr">{{ $market->lease_end_date?->format('d/m/Y') ?? 'غير محددة' }}</td></tr>
-<tr><th>الإيجار السنوي قبل خمس سنوات</th><td>{{ number_format((float) $market->annual_rent, 2) }} د.أ</td><th>الإيجار السنوي الحالي</th><td>{{ number_format($market->currentAnnualRent(), 2) }} د.أ</td></tr>
+<tr><th>الإيجار السنوي قبل خمس سنوات</th><td>{{ number_format((float) $market->annual_rent, 2) }} د.أ</td><th>{{ $rentLabel }}</th><td>{{ number_format(array_sum($entry['currentRents']), 2) }} د.أ</td></tr>
 <tr><th>الحالة</th><td colspan="3">{{ $market->is_active ? 'نشط' : 'مؤرشف' }}</td></tr>
 </tbody></table>
 @if($market->description)<div class="note"><b>ملاحظات السوق والعقد</b><br>{{ $market->description }}</div>@endif
@@ -48,7 +49,7 @@ body{font-family:cairo;font-size:9pt;line-height:1.4;direction:rtl;text-align:ri
 <h3 class="section-title unit-title">سوق {{ $section->name }}</h3>
 <table class="data"><tbody>
 <tr><th>المساحة</th><td>{{ number_format((float) $section->area, 2) }} م²</td><th>الإيجار السنوي قبل خمس سنوات</th><td>{{ number_format((float) $section->annual_rent, 2) }} د.أ</td></tr>
-<tr><th>الإيجار السنوي الحالي</th><td colspan="3">{{ number_format($entry['currentRents'][$section->id] ?? 0, 2) }} د.أ</td></tr>
+<tr><th>{{ $rentLabel }}</th><td colspan="3">{{ number_format($entry['currentRents'][$section->id] ?? 0, 2) }} د.أ</td></tr>
 </tbody></table>
 @endif
 <h3 class="section-title">سنوات الإيجار وحالة السداد{{ $section ? ' — '.$section->name : '' }}</h3>
