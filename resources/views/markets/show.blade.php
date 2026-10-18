@@ -59,7 +59,7 @@
         <p class="rent-footnote">تحتسب كل سنة إيجار مرة واحدة. آخر سنة تنتهي عند نهاية العقد، ولا تُحسب سنة جديدة تبدأ في يوم انتهاء العقد. اختيار السنوات السابقة متاح حتى خمس سنوات فقط.</p>
         <a class="button button-outline button-full" href="{{ route('reports.market', $market) }}"><i data-lucide="file-text"></i> عرض تقرير السوق وطباعته</a>
         @foreach($market->sections as $section)
-            <a class="button button-outline button-full" href="{{ route('reports.market-section', [$market, $section]) }}"><i data-lucide="file-text"></i> تقرير سوق {{ $section->name }} فقط</a>
+            <a class="button button-outline button-full" href="{{ route('reports.market-section', [$market, $section]) }}"><i data-lucide="file-text"></i> تقرير سوق {{ $section->name }}</a>
         @endforeach
     </aside>
 </div>
