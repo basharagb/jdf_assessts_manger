@@ -61,7 +61,7 @@ class AnnualLease
      *
      * Expansions add their rent to every year from their start year, on top of the period or base rent.
      *
-     * @return list<array{year: int, section_id: ?int, section: ?string, start: string, end: string, amount: float, expansion: float, status: string, notes: ?string}>
+     * @return list<array{year: int, section_id: ?int, section: ?string, start: string, end: string, amount: float, base: float, expansion: float, expansion_area: float, status: string, notes: ?string}>
      */
     public static function ledger(Market $market, int $from, int $to): array
     {
@@ -74,17 +74,19 @@ class AnnualLease
         for ($year = max($from, $market->lease_start_date->year); $year <= min($to, self::lastYear($market)); $year++) {
             foreach ($units as $unit) {
                 $period = $periods->first(fn (MarketRentPeriod $period): bool => $period->market_section_id === $unit['id'] && $period->covers($year));
-                $expansionRent = (float) $expansions
-                    ->filter(fn (MarketExpansion $expansion): bool => $expansion->market_section_id === $unit['id'] && $expansion->start_year <= $year)
-                    ->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_annual_rent);
+                $activeExpansions = $expansions->filter(fn (MarketExpansion $expansion): bool => $expansion->market_section_id === $unit['id'] && $expansion->start_year <= $year);
+                $expansionRent = (float) $activeExpansions->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_annual_rent);
+                $isVacant = $period?->status === 'vacant';
                 $rows[] = [
                     'year' => $year,
                     'section_id' => $unit['id'],
                     'section' => $unit['name'],
                     'start' => self::anniversary($market, $year)->toDateString(),
                     'end' => ($market->lease_end_date !== null && self::anniversary($market, $year + 1)->gt($market->lease_end_date) ? $market->lease_end_date : self::anniversary($market, $year + 1))->toDateString(),
-                    'amount' => $period?->status === 'vacant' ? 0.0 : round((float) ($period?->annual_rent ?? $unit['rent']) + $expansionRent, 2),
-                    'expansion' => $period?->status === 'vacant' ? 0.0 : $expansionRent,
+                    'amount' => $isVacant ? 0.0 : round((float) ($period?->annual_rent ?? $unit['rent']) + $expansionRent, 2),
+                    'base' => $isVacant ? 0.0 : round((float) ($period?->annual_rent ?? $unit['rent']), 2),
+                    'expansion' => $isVacant ? 0.0 : $expansionRent,
+                    'expansion_area' => round((float) $activeExpansions->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_area), 2),
                     'status' => $period?->status ?? 'untracked',
                     'notes' => $period?->notes,
                 ];
@@ -92,6 +94,34 @@ class AnnualLease
         }
 
         return $rows;
+    }
+
+    /**
+     * Year-over-year change of the base rent (expansions excluded, since they add space rather than raise its price),
+     * as a percentage for each row of one unit's ledger; null for the first year or when either year is vacant.
+     *
+     * @param  list<array{base: float, status: string}>  $unitRows
+     * @return list<?float>
+     */
+    public static function increaseRates(array $unitRows): array
+    {
+        $rates = [];
+        foreach ($unitRows as $index => $row) {
+            $previous = $unitRows[$index - 1] ?? null;
+            $rates[] = $previous === null || $previous['base'] <= 0 || $row['status'] === 'vacant'
+                ? null
+                : round(($row['base'] - $previous['base']) / $previous['base'] * 100, 2);
+        }
+
+        return $rates;
+    }
+
+    /** @param list<?float> $rates */
+    public static function averageIncreaseRate(array $rates): ?float
+    {
+        $known = array_filter($rates, fn (?float $rate): bool => $rate !== null);
+
+        return $known === [] ? null : round(array_sum($known) / count($known), 2);
     }
 
     /** @param list<array{year: int, amount: float, status: string}> $rows

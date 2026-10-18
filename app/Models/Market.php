@@ -73,6 +73,16 @@ class Market extends Model
         return $this->sections->isNotEmpty();
     }
 
+    /** The name without a trailing "(...)" listing the sections, e.g. "سوق جابر", for places that already show the sections. */
+    public function nameWithoutSections(): string
+    {
+        if (! $this->hasSections()) {
+            return $this->name;
+        }
+
+        return trim(preg_replace('/\s*\([^()]*\)\s*$/u', '', $this->name)) ?: $this->name;
+    }
+
     /** @return array<int|string, float> current annual rent keyed by section id, or 'market' for a single unit */
     public function currentRentBySection(): array
     {

@@ -147,7 +147,7 @@ class MarketSectionsTest extends TestCase
             ->assertViewHas('totals', fn (array $totals): bool => (float) $totals['total'] === 11500.0);
         $this->assertSame(6500.0, $market->fresh()->currentAnnualRent());
         $this->get(route('markets.expansions.index', $market))->assertOk()->assertSee('+1,500.00');
-        $this->get(route('reports.market', $market))->assertOk()->assertSee('توسعات السوق — القادمون')->assertSee('منها توسعة 1,500.00');
+        $this->get(route('reports.market', $market))->assertOk()->assertSee('توسعات السوق — القادمون')->assertSee('20.00 م² (توسعة) إيجارها 1,500.00 د.أ')->assertSee('<td>4,500.00</td>', false);
     }
 
     public function test_expansion_of_another_market_cannot_be_deleted(): void

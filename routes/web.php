@@ -30,6 +30,7 @@ Route::middleware('auth')->group(function (): void {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::get('/reports/all', [ReportController::class, 'all'])->name('reports.all');
     Route::get('/reports/markets/{market}', [ReportController::class, 'market'])->name('reports.market');
+    Route::get('/reports/markets/{market}/sections/{section}', [ReportController::class, 'marketSection'])->scopeBindings()->name('reports.market-section');
     Route::get('/reports/groups/{marketGroup:slug}', [ReportController::class, 'group'])->name('reports.group');
     Route::get('/market-groups', [MarketGroupController::class, 'index'])->name('groups.index');
     Route::get('/market-groups/create', [MarketGroupController::class, 'create'])->name('groups.create');

@@ -91,9 +91,50 @@ class ReportsTest extends TestCase
         $this->assertSame(0.0, $market->fresh()->currentAnnualRent());
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
             ->assertSee('الإيجار السنوي الحالي<br><strong>8,100.00</strong>', false)
-            ->assertSee('<td colspan="3">4,000.00 د.أ</td>', false)->assertSee('<td colspan="3">4,100.00 د.أ</td>', false)
-            ->assertDontSee('الإيجار السنوي الحالي');
+            ->assertSee('<td colspan="3">4,000.00 د.أ</td>', false)->assertSee('<td colspan="3">4,100.00 د.أ</td>', false);
         $this->get(route('markets.show', $market))->assertOk()->assertSee('الإيجار السنوي الحالي')->assertSee('8,100.00 د.أ');
+    }
+
+    public function test_split_market_report_names_the_store_without_repeating_its_sections(): void
+    {
+        $market = Market::factory()->create(['name' => 'سوق جابر (القادمون والمغادرون)']);
+        $market->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 3000]);
+        $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2000, 'sort_order' => 1]);
+        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
+            ->assertSee('<strong class="store-name">سوق جابر</strong>', false)->assertSee('سوقان: القادمون والمغادرون');
+    }
+
+    public function test_section_report_covers_only_the_chosen_section(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['name' => 'سوق جابر (القادمون والمغادرون)', 'lease_start_date' => '2025-10-08', 'lease_end_date' => '2027-10-08']);
+        $arrivals = $market->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 3100]);
+        $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2700, 'sort_order' => 1]);
+        $this->actingAs(User::factory()->create())->get(route('reports.market-section', [$market, $arrivals]))->assertOk()
+            ->assertSee('تقرير سوق جابر — القادمون')->assertSee('سوق القادمون فقط')->assertSee('60.00 م²')
+            ->assertSee('3,100.00')->assertSee('إجمالي سوق القادمون: 6,200.00 د.أ')
+            ->assertDontSee('2,700.00')->assertDontSee('سوق المغادرون');
+        $this->get(route('reports.market-section', ['market' => $market, 'section' => $arrivals, 'format' => 'pdf']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+        $this->get(route('markets.show', $market))->assertOk()->assertSee(route('reports.market-section', [$market, $arrivals]));
+    }
+
+    public function test_section_report_rejects_a_section_from_another_market(): void
+    {
+        $market = Market::factory()->create();
+        $otherSection = Market::factory()->create()->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 3000]);
+        $this->actingAs(User::factory()->create())->get(route('reports.market-section', [$market, $otherSection]))->assertNotFound();
+    }
+
+    public function test_rent_years_show_expansion_total_and_yearly_increase(): void
+    {
+        $this->travelTo(Carbon::parse('2024-01-01', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2022-02-02', 'lease_end_date' => null, 'annual_rent' => 2500]);
+        $market->rentPeriods()->create(['start_year' => 2023, 'end_year' => null, 'annual_rent' => 3000, 'status' => 'paid']);
+        $market->expansions()->create(['start_year' => 2023, 'added_area' => 50, 'added_annual_rent' => 150]);
+        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
+            ->assertSee('<td>2,500.00</td><td> لا يوجد </td><td>2,500.00</td><td dir="ltr">—</td>', false)
+            ->assertSee('<td>3,000.00</td><td>50.00 م² (توسعة) إيجارها 150.00 د.أ</td><td>3,150.00</td><td dir="ltr">+20.00%</td>', false)
+            ->assertSee('متوسط نسبة الزيادة السنوية في الإيجار');
     }
 
     public function test_open_contract_report_stops_at_current_rental_year(): void

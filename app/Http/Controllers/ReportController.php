@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\AnnualLease;
 use App\Models\Market;
 use App\Models\MarketGroup;
+use App\Models\MarketSection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Collection;
@@ -22,13 +23,23 @@ class ReportController extends Controller
     {
         return view('reports.index', [
             'groups' => MarketGroup::withCount('markets')->orderBy('id')->get(),
-            'markets' => Market::with('group')->orderBy('name')->get(),
+            'markets' => Market::with(['group', 'sections'])->orderBy('name')->get(),
         ]);
     }
 
     public function market(Request $request, Market $market): View|Response
     {
         return $this->report($request, 'تقرير '.$market->name, collect([$market->load(['group', 'sections', 'expansions', 'rentPeriods'])]), 'market-'.$market->id, true);
+    }
+
+    /** A report for one section of a split market (e.g. arrivals only), built by narrowing the market to that section. */
+    public function marketSection(Request $request, Market $market, MarketSection $section): View|Response
+    {
+        $market->load(['group', 'sections', 'expansions', 'rentPeriods']);
+        $title = 'تقرير '.$market->nameWithoutSections().' — '.$section->name;
+        $market->setRelation('sections', $market->sections->where('id', $section->id)->values());
+
+        return $this->report($request, $title, collect([$market]), 'market-'.$market->id.'-section-'.$section->id, true, $section);
     }
 
     public function group(Request $request, MarketGroup $marketGroup): View|Response
@@ -42,7 +53,7 @@ class ReportController extends Controller
     }
 
     /** @param Collection<int, Market> $markets */
-    private function report(Request $request, string $title, Collection $markets, string $filename, bool $isSingleMarket = false): View|Response
+    private function report(Request $request, string $title, Collection $markets, string $filename, bool $isSingleMarket = false, ?MarketSection $reportSection = null): View|Response
     {
         $request->validate(['format' => ['nullable', 'in:pdf']]);
         $entries = $markets->map(function (Market $market) use ($request): array {
@@ -72,7 +83,7 @@ class ReportController extends Controller
         ]);
         $pdf = $request->query('format') === 'pdf';
         $logo = $this->image(null, public_path('images/jdf_logo.png'));
-        $data = compact('title', 'entries', 'summary', 'groupSummaries', 'pdf', 'logo', 'isSingleMarket');
+        $data = compact('title', 'entries', 'summary', 'groupSummaries', 'pdf', 'logo', 'isSingleMarket', 'reportSection');
         if (! $pdf) {
             return view('reports.show', $data);
         }

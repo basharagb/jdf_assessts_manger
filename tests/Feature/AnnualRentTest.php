@@ -83,6 +83,18 @@ class AnnualRentTest extends TestCase
         $this->assertSame(9000.0, $market->currentAnnualRent());
     }
 
+    public function test_increase_rates_skip_the_first_year_and_vacant_years(): void
+    {
+        $rows = [
+            ['base' => 2500.0, 'status' => 'paid'], ['base' => 3000.0, 'status' => 'paid'], ['base' => 0.0, 'status' => 'vacant'],
+            ['base' => 3200.0, 'status' => 'paid'], ['base' => 3040.0, 'status' => 'unpaid'],
+        ];
+        $rates = AnnualLease::increaseRates($rows);
+        $this->assertSame([null, 20.0, null, null, -5.0], $rates);
+        $this->assertSame(7.5, AnnualLease::averageIncreaseRate($rates));
+        $this->assertNull(AnnualLease::averageIncreaseRate([null]));
+    }
+
     public function test_overlapping_years_are_rejected(): void
     {
         $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
