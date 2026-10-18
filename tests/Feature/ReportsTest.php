@@ -125,7 +125,7 @@ class ReportsTest extends TestCase
         $arrivals = $market->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 3100]);
         $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2700, 'sort_order' => 1]);
         $this->actingAs(User::factory()->create())->get(route('reports.market-section', [$market, $arrivals]))->assertOk()
-            ->assertSee('تقرير سوق جابر — القادمون')->assertSee('سوق القادمون ')->assertSee('60.00 م²')
+            ->assertSee('تقرير سوق جابر — القادمون')->assertSee('<strong class="store-name">سوق القادمون</strong>', false)->assertDontSee('فقط')->assertSee('60.00 م²')
             ->assertSee('3,100.00')->assertSee('الإجمالي — سوق القادمون: <b>6,200.00 د.أ</b>', false)
             ->assertDontSee('2,700.00')->assertDontSee('سوق المغادرون');
         $this->get(route('reports.market-section', ['market' => $market, 'section' => $arrivals, 'format' => 'pdf']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
