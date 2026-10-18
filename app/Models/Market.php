@@ -83,19 +83,26 @@ class Market extends Model
         return trim(preg_replace('/\s*\([^()]*\)\s*$/u', '', $this->name)) ?: $this->name;
     }
 
-    /** @return array<int|string, float> current annual rent keyed by section id, or 'market' for a single unit */
-    public function currentRentBySection(): array
+    /**
+     * The current year's rent, keyed by section id (or 'market' for a single unit). "Annual rent" means the market's own
+     * rent without expansions ($part 'base'); pass 'expansion' for the expansions' rent or 'amount' for both together.
+     *
+     * @param  'base'|'expansion'|'amount'  $part
+     * @return array<int|string, float>
+     */
+    public function currentRentBySection(string $part = 'base'): array
     {
         if (Carbon::today('Asia/Amman')->lt($this->lease_start_date) || $this->leaseHasEnded()) {
             return [];
         }
 
-        return $this->rentBySectionForYear(AnnualLease::currentYear($this));
+        return $this->rentBySectionForYear(AnnualLease::currentYear($this), $part);
     }
 
-    public function currentAnnualRent(): float
+    /** @param 'base'|'expansion'|'amount' $part */
+    public function currentAnnualRent(string $part = 'base'): float
     {
-        return round(array_sum($this->currentRentBySection()), 2);
+        return round(array_sum($this->currentRentBySection($part)), 2);
     }
 
     public function leaseHasEnded(): bool
@@ -107,16 +114,26 @@ class Market extends Model
      * Rent to show on the market page and reports: the current year's rent while the lease runs,
      * or the final contract year's rent once the lease has ended, instead of an empty zero.
      *
+     * @param  'base'|'expansion'|'amount'  $part
      * @return array<int|string, float> annual rent keyed by section id, or 'market' for a single unit
      */
-    public function displayedRentBySection(): array
+    public function displayedRentBySection(string $part = 'base'): array
     {
-        return $this->leaseHasEnded() ? $this->rentBySectionForYear(AnnualLease::lastYear($this)) : $this->currentRentBySection();
+        return $this->leaseHasEnded() ? $this->rentBySectionForYear(AnnualLease::lastYear($this), $part) : $this->currentRentBySection($part);
     }
 
-    /** @return array<int|string, float> annual rent keyed by section id, or 'market' for a single unit */
-    private function rentBySectionForYear(int $year): array
+    /** @param 'base'|'expansion'|'amount' $part */
+    public function displayedAnnualRent(string $part = 'base'): float
     {
-        return collect(AnnualLease::ledger($this, $year, $year))->mapWithKeys(fn (array $row): array => [$row['section_id'] ?? 'market' => $row['amount']])->all();
+        return round(array_sum($this->displayedRentBySection($part)), 2);
+    }
+
+    /**
+     * @param  'base'|'expansion'|'amount'  $part
+     * @return array<int|string, float>
+     */
+    private function rentBySectionForYear(int $year, string $part): array
+    {
+        return collect(AnnualLease::ledger($this, $year, $year))->mapWithKeys(fn (array $row): array => [$row['section_id'] ?? 'market' => $row[$part]])->all();
     }
 }

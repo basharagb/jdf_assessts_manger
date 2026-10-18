@@ -145,7 +145,9 @@ class MarketSectionsTest extends TestCase
 
         $this->get(route('markets.show', ['market' => $market, 'from' => 2024, 'to' => 2026]))->assertOk()
             ->assertViewHas('totals', fn (array $totals): bool => (float) $totals['total'] === 11500.0);
-        $this->assertSame(6500.0, $market->fresh()->currentAnnualRent());
+        $this->assertSame(5000.0, $market->fresh()->currentAnnualRent());
+        $this->assertSame(1500.0, $market->fresh()->currentAnnualRent('expansion'));
+        $this->assertSame(6500.0, $market->fresh()->currentAnnualRent('amount'));
         $this->get(route('markets.expansions.index', $market))->assertOk()->assertSee('+1,500.00');
         $this->get(route('reports.market', $market))->assertOk()->assertSee('<td>20.00 م²</td><td>1,500.00</td>', false)->assertSee('<td><b>4,500.00</b></td>', false);
     }

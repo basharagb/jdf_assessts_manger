@@ -95,8 +95,9 @@ class MarketController extends Controller
         $totals = AnnualLease::totals($rows);
         $anniversaries = AnnualLease::anniversaryLabels($market, $firstYear, $lastYear + 1);
         $currentRents = $market->displayedRentBySection();
+        $currentExpansionRents = $market->displayedRentBySection('expansion');
 
-        return view('markets.show', compact('market', 'from', 'to', 'firstYear', 'lastYear', 'rangeError', 'rows', 'totals', 'anniversaries', 'currentRents'));
+        return view('markets.show', compact('market', 'from', 'to', 'firstYear', 'lastYear', 'rangeError', 'rows', 'totals', 'anniversaries', 'currentRents', 'currentExpansionRents'));
     }
 
     public function edit(Market $market): View

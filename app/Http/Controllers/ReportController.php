@@ -61,8 +61,8 @@ class ReportController extends Controller
             $rows = AnnualLease::ledger($market, $market->lease_start_date->year, $lastYear);
 
             return [
-                'market' => $market, 'rows' => $rows, 'totals' => AnnualLease::totals($rows), 'currentRents' => $market->displayedRentBySection(),
-                'currentRent' => round(array_sum($market->displayedRentBySection()), 2),
+                'market' => $market, 'rows' => $rows, 'totals' => AnnualLease::totals($rows), 'currentRent' => $market->displayedAnnualRent(),
+                'currentExpansionRent' => $market->displayedAnnualRent('expansion'),
                 'averageIncrease' => AnnualLease::averageIncreaseRate(AnnualLease::increaseRates($this->yearlyTotals($rows), 'amount')),
                 'image' => $request->query('format') === 'pdf' ? $this->pdfImage($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg') : $this->image($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg'),
             ];
@@ -71,6 +71,7 @@ class ReportController extends Controller
             'count' => $markets->count(),
             'active' => $markets->where('is_active', true)->count(),
             'annual' => $entries->sum(fn (array $entry): float => $entry['currentRent']),
+            'expansion' => $entries->sum(fn (array $entry): float => $entry['currentExpansionRent']),
             'total' => $entries->sum(fn (array $entry): float => $entry['totals']['total']),
             'paid' => $entries->sum(fn (array $entry): float => $entry['totals']['paid']),
             'unpaid' => $entries->sum(fn (array $entry): float => $entry['totals']['unpaid']),
