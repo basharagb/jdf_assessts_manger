@@ -80,6 +80,22 @@ class ReportsTest extends TestCase
         }
     }
 
+    public function test_ended_contract_shows_final_year_rent_instead_of_zero(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2022-02-02', 'lease_end_date' => '2026-02-02', 'is_active' => false]);
+        $arrivals = $market->sections()->create(['name' => 'القادمون', 'area' => 60, 'annual_rent' => 2500]);
+        $departures = $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2500, 'sort_order' => 1]);
+        $market->rentPeriods()->create(['market_section_id' => $arrivals->id, 'start_year' => 2025, 'end_year' => 2026, 'annual_rent' => 4000, 'status' => 'paid']);
+        $market->rentPeriods()->create(['market_section_id' => $departures->id, 'start_year' => 2025, 'end_year' => 2026, 'annual_rent' => 4100, 'status' => 'paid']);
+        $this->assertSame(0.0, $market->fresh()->currentAnnualRent());
+        $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
+            ->assertSee('الإيجار السنوي الحالي<br><strong>8,100.00</strong>', false)
+            ->assertSee('<td colspan="3">4,000.00 د.أ</td>', false)->assertSee('<td colspan="3">4,100.00 د.أ</td>', false)
+            ->assertDontSee('الإيجار السنوي الحالي');
+        $this->get(route('markets.show', $market))->assertOk()->assertSee('الإيجار السنوي الحالي')->assertSee('8,100.00 د.أ');
+    }
+
     public function test_open_contract_report_stops_at_current_rental_year(): void
     {
         $this->travelTo(Carbon::parse('2026-02-01', 'Asia/Amman'));
