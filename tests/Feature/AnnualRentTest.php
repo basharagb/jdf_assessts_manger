@@ -61,7 +61,7 @@ class AnnualRentTest extends TestCase
         $market->rentPeriods()->create(['start_year' => 2023, 'end_year' => 2024, 'annual_rent' => 6000, 'status' => 'unpaid']);
         $market->rentPeriods()->create(['start_year' => 2024, 'end_year' => 2025, 'annual_rent' => 0, 'status' => 'vacant']);
         $this->actingAs(User::factory()->create())->get(route('markets.show', ['market' => $market, 'from' => 2022, 'to' => 2025]))
-            ->assertOk()->assertViewHas('totals', ['years' => 3, 'total' => 11000, 'paid' => 5000, 'unpaid' => 6000, 'untracked' => 0, 'vacant' => 1]);
+            ->assertOk()->assertViewHas('totals', ['years' => 3, 'total' => 11000, 'paid' => 5000, 'unpaid' => 6000, 'vacant' => 1]);
         $this->assertSame(0.0, $market->currentAnnualRent());
     }
 
@@ -95,6 +95,19 @@ class AnnualRentTest extends TestCase
         $this->assertNull(AnnualLease::averageIncreaseRate([null]));
     }
 
+    public function test_unrecorded_years_count_as_unpaid_at_the_latest_recorded_rent(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $market = Market::factory()->create(['lease_start_date' => '2022-02-02', 'lease_end_date' => '2027-02-02', 'annual_rent' => 2500]);
+        $this->actingAs(User::factory()->create())->post(route('markets.rent-details.store', $market), [
+            'start_year' => 2022, 'end_year' => 2025, 'annual_rent' => 3200, 'expansion_rent' => 300, 'status' => 'paid',
+        ])->assertSessionHasNoErrors();
+        $rows = AnnualLease::ledger($market->fresh(), 2022, 2026);
+        $this->assertSame(['paid', 'paid', 'paid', 'unpaid', 'unpaid'], array_column($rows, 'status'));
+        $this->assertSame([3500.0, 3500.0, 3500.0, 3500.0, 3500.0], array_column($rows, 'amount'));
+        $this->assertSame(['years' => 5, 'total' => 17500, 'paid' => 10500, 'unpaid' => 7000, 'vacant' => 0], AnnualLease::totals($rows));
+    }
+
     public function test_overlapping_years_are_rejected(): void
     {
         $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
@@ -115,7 +128,7 @@ class AnnualRentTest extends TestCase
         $this->post(route('markets.rent-details.store', $market), ['start_year' => 2023, 'end_year' => 2024, 'annual_rent' => 5200, 'status' => 'unpaid'])->assertSessionHasNoErrors();
         $this->assertDatabaseCount('market_rent_periods', 2);
         $this->get(route('markets.show', ['market' => $market, 'from' => 2022, 'to' => 2024]))
-            ->assertOk()->assertViewHas('totals', ['years' => 2, 'total' => 10200, 'paid' => 5000, 'unpaid' => 5200, 'untracked' => 0, 'vacant' => 0]);
+            ->assertOk()->assertViewHas('totals', ['years' => 2, 'total' => 10200, 'paid' => 5000, 'unpaid' => 5200, 'vacant' => 0]);
     }
 
     public function test_period_end_year_must_follow_its_start_year(): void

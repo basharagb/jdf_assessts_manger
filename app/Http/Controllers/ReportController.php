@@ -72,7 +72,6 @@ class ReportController extends Controller
             'total' => $entries->sum(fn (array $entry): float => $entry['totals']['total']),
             'paid' => $entries->sum(fn (array $entry): float => $entry['totals']['paid']),
             'unpaid' => $entries->sum(fn (array $entry): float => $entry['totals']['unpaid']),
-            'untracked' => $entries->sum(fn (array $entry): float => $entry['totals']['untracked']),
         ];
         $groupSummaries = $markets->groupBy('market_group_id')->map(fn (Collection $group): array => [
             'name' => $group->first()->group->name,

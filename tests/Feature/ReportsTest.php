@@ -41,8 +41,8 @@ class ReportsTest extends TestCase
         $market = Market::factory()->create(['name' => 'سوق جابر']);
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
             ->assertSee('<strong class="store-name">سوق جابر</strong>', false)
-            ->assertDontSee('عدد الأسواق')->assertDontSee('المدفوع: 0.00 د.أ')->assertDontSee('«بلا تفاصيل سداد» لا تعني مدفوعاً');
-        $this->get(route('reports.group', $market->group))->assertOk()->assertSee('عدد الأسواق')->assertSee('«بلا تفاصيل سداد» لا تعني مدفوعاً');
+            ->assertDontSee('عدد الأسواق')->assertDontSee('<div class="totals">المدفوع:', false)->assertDontSee('السنوات التي لم تُسجّل لها فترة تُعدّ غير مدفوعة');
+        $this->get(route('reports.group', $market->group))->assertOk()->assertSee('عدد الأسواق')->assertSee('السنوات التي لم تُسجّل لها فترة تُعدّ غير مدفوعة');
     }
 
     public function test_report_lists_each_section_of_a_split_market(): void
@@ -53,8 +53,8 @@ class ReportsTest extends TestCase
         $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2000, 'sort_order' => 1]);
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
             ->assertSee('سوقان: القادمون والمغادرون')->assertSee('سوق القادمون')->assertSee('سوق المغادرون')
-            ->assertSee('إجمالي سوق القادمون: 6,000.00 د.أ')->assertSee('إجمالي سوق المغادرون: 4,000.00 د.أ')->assertSee('إجمالي السوق: 10,000.00 د.أ')
-            ->assertSee('الإيجار السنوي قبل خمس سنوات')->assertDontSee('تكوين السوق')->assertDontSee('مصدر البيانات')->assertDontSee('بلا تفاصيل سداد: ');
+            ->assertSee('الإجمالي — سوق القادمون: <b>6,000.00 د.أ</b>', false)->assertSee('الإجمالي — سوق المغادرون: <b>4,000.00 د.أ</b>', false)->assertSee('إجمالي السوق: 10,000.00 د.أ')
+            ->assertSee('الإيجار السنوي قبل خمس سنوات')->assertDontSee('تكوين السوق')->assertDontSee('مصدر البيانات')->assertDontSee('بلا تفاصيل سداد')->assertDontSee('الفترات المسجلة')->assertDontSee('توسعات السوق');
         $this->get(route('reports.market', ['market' => $market, 'format' => 'pdf']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
     }
 
@@ -90,8 +90,8 @@ class ReportsTest extends TestCase
         $market->rentPeriods()->create(['market_section_id' => $departures->id, 'start_year' => 2025, 'end_year' => 2026, 'annual_rent' => 4100, 'status' => 'paid']);
         $this->assertSame(0.0, $market->fresh()->currentAnnualRent());
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
-            ->assertSee('الإيجار السنوي الحالي<br><strong>8,100.00</strong>', false)
-            ->assertSee('<td colspan="3">4,000.00 د.أ</td>', false)->assertSee('<td colspan="3">4,100.00 د.أ</td>', false);
+            ->assertSee('الإيجار السنوي الحالي<br><strong>8,100.00</strong>', false)->assertSee('<a href="'.route('reports.index').'">العودة</a>', false)
+            ->assertSee('<td>4,000.00</td>', false)->assertSee('<td>4,100.00</td>', false);
         $this->get(route('markets.show', $market))->assertOk()->assertSee('الإيجار السنوي الحالي')->assertSee('8,100.00 د.أ');
     }
 
@@ -112,7 +112,7 @@ class ReportsTest extends TestCase
         $market->sections()->create(['name' => 'المغادرون', 'area' => 40, 'annual_rent' => 2700, 'sort_order' => 1]);
         $this->actingAs(User::factory()->create())->get(route('reports.market-section', [$market, $arrivals]))->assertOk()
             ->assertSee('تقرير سوق جابر — القادمون')->assertSee('سوق القادمون فقط')->assertSee('60.00 م²')
-            ->assertSee('3,100.00')->assertSee('إجمالي سوق القادمون: 6,200.00 د.أ')
+            ->assertSee('3,100.00')->assertSee('الإجمالي — سوق القادمون: <b>6,200.00 د.أ</b>', false)
             ->assertDontSee('2,700.00')->assertDontSee('سوق المغادرون');
         $this->get(route('reports.market-section', ['market' => $market, 'section' => $arrivals, 'format' => 'pdf']))->assertOk()->assertHeader('Content-Type', 'application/pdf');
         $this->get(route('markets.show', $market))->assertOk()->assertSee(route('reports.market-section', [$market, $arrivals]));
@@ -125,16 +125,20 @@ class ReportsTest extends TestCase
         $this->actingAs(User::factory()->create())->get(route('reports.market-section', [$market, $otherSection]))->assertNotFound();
     }
 
-    public function test_rent_years_show_expansion_total_and_yearly_increase(): void
+    public function test_rent_years_show_market_and_expansion_rent_with_their_increases_and_total(): void
     {
         $this->travelTo(Carbon::parse('2024-01-01', 'Asia/Amman'));
-        $market = Market::factory()->create(['lease_start_date' => '2022-02-02', 'lease_end_date' => null, 'annual_rent' => 2500]);
-        $market->rentPeriods()->create(['start_year' => 2023, 'end_year' => null, 'annual_rent' => 3000, 'status' => 'paid']);
-        $market->expansions()->create(['start_year' => 2023, 'added_area' => 50, 'added_annual_rent' => 150]);
+        $market = Market::factory()->create(['lease_start_date' => '2021-02-02', 'lease_end_date' => null, 'area' => 100, 'annual_rent' => 2500]);
+        $market->expansions()->create(['start_year' => 2022, 'added_area' => 20, 'added_annual_rent' => 200]);
+        $market->rentPeriods()->create(['start_year' => 2021, 'end_year' => 2022, 'annual_rent' => 2500, 'status' => 'paid']);
+        $market->rentPeriods()->create(['start_year' => 2022, 'end_year' => 2023, 'annual_rent' => 2800, 'status' => 'paid']);
+        $market->rentPeriods()->create(['start_year' => 2023, 'end_year' => 2024, 'annual_rent' => 3000, 'expansion_rent' => 220, 'status' => 'unpaid']);
         $this->actingAs(User::factory()->create())->get(route('reports.market', $market))->assertOk()
-            ->assertSee('<td>2,500.00</td><td> لا يوجد </td><td>2,500.00</td><td dir="ltr">—</td>', false)
-            ->assertSee('<td>3,000.00</td><td>50.00 م² (توسعة) إيجارها 150.00 د.أ</td><td>3,150.00</td><td dir="ltr">+20.00%</td>', false)
-            ->assertSee('متوسط نسبة الزيادة السنوية في الإيجار');
+            ->assertSee('<td>2,500.00</td><td dir="ltr">—</td><td> لا يوجد </td><td>—</td><td dir="ltr">—</td><td><b>2,500.00</b></td><td dir="ltr">—</td>', false)
+            ->assertSee('<td>2,800.00</td><td dir="ltr">+12.00%</td><td>20.00 م²</td><td>200.00</td><td dir="ltr">—</td><td><b>3,000.00</b></td><td dir="ltr">+20.00%</td>', false)
+            ->assertSee('<td>3,000.00</td><td dir="ltr">+7.14%</td><td>20.00 م²</td><td>220.00</td><td dir="ltr">+10.00%</td><td><b>3,220.00</b></td><td dir="ltr">+7.33%</td><td class="status-unpaid">غير مدفوع</td>', false)
+            ->assertSee('<th>8,300.00</th>', false)->assertSee('<th>420.00</th>', false)->assertSee('<th>8,720.00</th>', false)
+            ->assertDontSee('الفترات المسجلة')->assertDontSee('توسعات السوق');
     }
 
     public function test_open_contract_report_stops_at_current_rental_year(): void

@@ -98,7 +98,7 @@ class MarketRentPeriodController extends Controller
     }
 
     /**
-     * @return array{market_section_id: ?int, start_year: int, end_year: ?int, annual_rent: float|string|int, status: string, notes: ?string}
+     * @return array{market_section_id: ?int, start_year: int, end_year: ?int, annual_rent: float|string|int, expansion_rent: float|string|int|null, status: string, notes: ?string}
      */
     private function validatedPeriod(Request $request, Market $market, ?MarketRentPeriod $rentPeriod = null): array
     {
@@ -107,6 +107,7 @@ class MarketRentPeriodController extends Controller
             'start_year' => ['required', 'integer', 'between:1900,9998'],
             'end_year' => ['nullable', 'integer', 'between:1901,9999'],
             'annual_rent' => ['required_unless:status,vacant', 'nullable', 'numeric', 'min:0', 'max:999999999999.99'],
+            'expansion_rent' => ['nullable', 'numeric', 'min:0', 'max:999999999999.99'],
             'status' => ['required', Rule::in(self::STATUSES)],
             'notes' => ['nullable', 'string', 'max:2000'],
         ], [], ['market_section_id' => 'القسم']);
@@ -137,6 +138,7 @@ class MarketRentPeriodController extends Controller
         }
 
         $data['annual_rent'] = $data['status'] === 'vacant' ? 0 : $data['annual_rent'];
+        $data['expansion_rent'] = $data['status'] === 'vacant' ? null : ($data['expansion_rent'] ?? null);
 
         return $data;
     }

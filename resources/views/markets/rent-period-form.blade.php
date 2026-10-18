@@ -20,6 +20,8 @@
 
     <label class="field" id="rentPeriodAmountField"><span>الإيجار السنوي <b>*</b></span><div class="input-icon input-suffix"><i data-lucide="wallet"></i><input id="rentPeriodAmount" type="number" name="annual_rent" value="{{ old('annual_rent', $rentPeriod->annual_rent ?? $market->annual_rent) }}" min="0" step="0.01" required><em>د.أ</em></div>@error('annual_rent')<small class="field-error">{{ $message }}</small>@enderror</label>
 
+    <label class="field" id="rentPeriodExpansionField"><span>إيجار التوسعة لهذه الفترة</span><div class="input-icon input-suffix"><i data-lucide="expand"></i><input id="rentPeriodExpansion" type="number" name="expansion_rent" value="{{ old('expansion_rent', $rentPeriod->expansion_rent) }}" min="0" step="0.01" placeholder="{{ $market->expansions->isNotEmpty() ? 'حسب صفحة التوسعة' : 'لا يوجد توسعة' }}"><em>د.أ</em></div><small class="field-help">إن وُجدت توسعة وتغيّر إيجارها في هذه الفترة فأدخله هنا ليُحسب مع إيجار السوق ونسبة زيادته. اتركه فارغاً لاستخدام المبلغ المسجل في صفحة توسعة السوق.</small>@error('expansion_rent')<small class="field-error">{{ $message }}</small>@enderror</label>
+
     <label class="field"><span>ملاحظات</span><textarea name="notes" rows="3" maxlength="2000" placeholder="سبب الإخلاء أو ملاحظات السداد...">{{ old('notes', $rentPeriod->notes) }}</textarea>@error('notes')<small class="field-error">{{ $message }}</small>@enderror</label>
 
     <div class="rent-period-form-actions"><a class="button button-quiet" href="{{ route('markets.rent-details.index', $market) }}">إلغاء</a><button class="button button-primary" type="submit"><i data-lucide="save"></i> حفظ الفترة</button></div>
@@ -30,11 +32,15 @@
         const status = document.getElementById('rentPeriodStatus');
         const amount = document.getElementById('rentPeriodAmount');
         const amountField = document.getElementById('rentPeriodAmountField');
+        const expansion = document.getElementById('rentPeriodExpansion');
+        const expansionField = document.getElementById('rentPeriodExpansionField');
         const updateAmount = () => {
             const isVacant = status.value === 'vacant';
             amountField.hidden = isVacant;
             amount.required = !isVacant;
             amount.disabled = isVacant;
+            expansionField.hidden = isVacant;
+            expansion.disabled = isVacant;
         };
         status.addEventListener('change', updateAmount);
         updateAmount();

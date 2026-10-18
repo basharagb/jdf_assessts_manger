@@ -13,12 +13,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MarketRentPeriod extends Model
 {
     protected $fillable = [
-        'market_section_id', 'start_year', 'end_year', 'annual_rent', 'status', 'notes',
+        'market_section_id', 'start_year', 'end_year', 'annual_rent', 'expansion_rent', 'status', 'notes',
     ];
 
     protected function casts(): array
     {
-        return ['annual_rent' => 'decimal:2', 'start_year' => 'integer', 'end_year' => 'integer', 'market_section_id' => 'integer'];
+        return ['annual_rent' => 'decimal:2', 'expansion_rent' => 'decimal:2', 'start_year' => 'integer', 'end_year' => 'integer', 'market_section_id' => 'integer'];
     }
 
     public function market(): BelongsTo

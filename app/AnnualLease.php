@@ -59,7 +59,9 @@ class AnnualLease
     /**
      * Rows for each rental year from $from to $to inclusive, one per section for a market split into sections.
      *
-     * Expansions add their rent to every year from their start year, on top of the period or base rent.
+     * A year without a recorded period counts as unpaid and keeps the rent of the latest earlier period (or the base rent),
+     * until its period is recorded. Expansions add their rent on top: the period's expansion_rent when given, so it can
+     * rise year by year, otherwise the amount recorded on the expansions active since their start year.
      *
      * @return list<array{year: int, section_id: ?int, section: ?string, start: string, end: string, amount: float, base: float, expansion: float, expansion_area: float, status: string, notes: ?string}>
      */
@@ -73,9 +75,15 @@ class AnnualLease
         $rows = [];
         for ($year = max($from, $market->lease_start_date->year); $year <= min($to, self::lastYear($market)); $year++) {
             foreach ($units as $unit) {
-                $period = $periods->first(fn (MarketRentPeriod $period): bool => $period->market_section_id === $unit['id'] && $period->covers($year));
+                $unitPeriods = $periods->where('market_section_id', $unit['id']);
+                $period = $unitPeriods->first(fn (MarketRentPeriod $period): bool => $period->covers($year));
+                $rentSource = $period ?? $unitPeriods
+                    ->filter(fn (MarketRentPeriod $earlier): bool => $earlier->start_year < $year && $earlier->status !== 'vacant')
+                    ->sortByDesc('start_year')
+                    ->first();
                 $activeExpansions = $expansions->filter(fn (MarketExpansion $expansion): bool => $expansion->market_section_id === $unit['id'] && $expansion->start_year <= $year);
-                $expansionRent = (float) $activeExpansions->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_annual_rent);
+                $expansionRent = round((float) ($rentSource?->expansion_rent ?? $activeExpansions->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_annual_rent)), 2);
+                $baseRent = round((float) ($rentSource?->annual_rent ?? $unit['rent']), 2);
                 $isVacant = $period?->status === 'vacant';
                 $rows[] = [
                     'year' => $year,
@@ -83,11 +91,11 @@ class AnnualLease
                     'section' => $unit['name'],
                     'start' => self::anniversary($market, $year)->toDateString(),
                     'end' => ($market->lease_end_date !== null && self::anniversary($market, $year + 1)->gt($market->lease_end_date) ? $market->lease_end_date : self::anniversary($market, $year + 1))->toDateString(),
-                    'amount' => $isVacant ? 0.0 : round((float) ($period?->annual_rent ?? $unit['rent']) + $expansionRent, 2),
-                    'base' => $isVacant ? 0.0 : round((float) ($period?->annual_rent ?? $unit['rent']), 2),
+                    'amount' => $isVacant ? 0.0 : round($baseRent + $expansionRent, 2),
+                    'base' => $isVacant ? 0.0 : $baseRent,
                     'expansion' => $isVacant ? 0.0 : $expansionRent,
                     'expansion_area' => round((float) $activeExpansions->sum(fn (MarketExpansion $expansion): float => (float) $expansion->added_area), 2),
-                    'status' => $period?->status ?? 'untracked',
+                    'status' => $period?->status ?? 'unpaid',
                     'notes' => $period?->notes,
                 ];
             }
@@ -97,20 +105,22 @@ class AnnualLease
     }
 
     /**
-     * Year-over-year change of the base rent (expansions excluded, since they add space rather than raise its price),
-     * as a percentage for each row of one unit's ledger; null for the first year or when either year is vacant.
+     * Year-over-year change of one ledger amount ('base' market rent, 'expansion' rent or 'amount' total)
+     * as a percentage for each row of one unit's ledger; null for the first year, when either year is vacant,
+     * or when the previous year had nothing to compare with (e.g. the year an expansion starts).
      *
-     * @param  list<array{base: float, status: string}>  $unitRows
+     * @param  list<array{base: float, expansion: float, amount: float, status: string}>  $unitRows
+     * @param  'base'|'expansion'|'amount'  $key
      * @return list<?float>
      */
-    public static function increaseRates(array $unitRows): array
+    public static function increaseRates(array $unitRows, string $key = 'base'): array
     {
         $rates = [];
         foreach ($unitRows as $index => $row) {
             $previous = $unitRows[$index - 1] ?? null;
-            $rates[] = $previous === null || $previous['base'] <= 0 || $row['status'] === 'vacant'
+            $rates[] = $previous === null || $previous[$key] <= 0 || $row['status'] === 'vacant'
                 ? null
-                : round(($row['base'] - $previous['base']) / $previous['base'] * 100, 2);
+                : round(($row[$key] - $previous[$key]) / $previous[$key] * 100, 2);
         }
 
         return $rates;
@@ -125,11 +135,11 @@ class AnnualLease
     }
 
     /** @param list<array{year: int, amount: float, status: string}> $rows
-     * @return array{years: int, total: float, paid: float, unpaid: float, untracked: float, vacant: int}
+     * @return array{years: int, total: float, paid: float, unpaid: float, vacant: int}
      */
     public static function totals(array $rows): array
     {
-        $totals = ['years' => count(array_unique(array_column($rows, 'year'))), 'total' => 0, 'paid' => 0, 'unpaid' => 0, 'untracked' => 0, 'vacant' => 0];
+        $totals = ['years' => count(array_unique(array_column($rows, 'year'))), 'total' => 0, 'paid' => 0, 'unpaid' => 0, 'vacant' => 0];
         foreach ($rows as $row) {
             if ($row['status'] === 'vacant') {
                 $totals['vacant']++;
@@ -139,7 +149,7 @@ class AnnualLease
                 $totals[$row['status']] += $cents;
             }
         }
-        foreach (['total', 'paid', 'unpaid', 'untracked'] as $key) {
+        foreach (['total', 'paid', 'unpaid'] as $key) {
             $totals[$key] /= 100;
         }
 

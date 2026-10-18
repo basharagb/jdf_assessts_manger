@@ -54,7 +54,6 @@
                 <div><span>مدفوع</span><b>{{ number_format($totals['paid'], 2) }} د.أ</b></div>
                 <div><span>غير مدفوع</span><b>{{ number_format($totals['unpaid'], 2) }} د.أ</b></div>
                 <div><span>إخلاء</span><b>{{ $totals['vacant'] }} سنة</b></div>
-                <div><span>بلا تفاصيل سداد</span><b>{{ number_format($totals['untracked'], 2) }} د.أ</b></div>
             </div>
         </div>
         <p class="rent-footnote">تحتسب كل سنة إيجار مرة واحدة. آخر سنة تنتهي عند نهاية العقد، ولا تُحسب سنة جديدة تبدأ في يوم انتهاء العقد. اختيار السنوات السابقة متاح حتى خمس سنوات فقط.</p>

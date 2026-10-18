@@ -63,7 +63,7 @@ class MarketSectionsTest extends TestCase
         $this->assertDatabaseCount('market_rent_periods', 2);
 
         $this->get(route('markets.show', ['market' => $market, 'from' => 2023, 'to' => 2025]))->assertOk()
-            ->assertViewHas('totals', ['years' => 2, 'total' => 10200, 'paid' => 3100, 'unpaid' => 2100, 'untracked' => 5000, 'vacant' => 0])
+            ->assertViewHas('totals', ['years' => 2, 'total' => 10400, 'paid' => 3100, 'unpaid' => 7300, 'vacant' => 0])
             ->assertSee('أقسام السوق')->assertSee('القادمون')->assertSee('المغادرون');
         $this->get(route('markets.rent-details.index', $market))->assertOk()->assertSee('قسم القادمون')->assertSee('قسم المغادرون');
     }
@@ -147,7 +147,7 @@ class MarketSectionsTest extends TestCase
             ->assertViewHas('totals', fn (array $totals): bool => (float) $totals['total'] === 11500.0);
         $this->assertSame(6500.0, $market->fresh()->currentAnnualRent());
         $this->get(route('markets.expansions.index', $market))->assertOk()->assertSee('+1,500.00');
-        $this->get(route('reports.market', $market))->assertOk()->assertSee('توسعات السوق — القادمون')->assertSee('20.00 م² (توسعة) إيجارها 1,500.00 د.أ')->assertSee('<td>4,500.00</td>', false);
+        $this->get(route('reports.market', $market))->assertOk()->assertSee('<td>20.00 م²</td><td>1,500.00</td>', false)->assertSee('<td><b>4,500.00</b></td>', false);
     }
 
     public function test_expansion_of_another_market_cannot_be_deleted(): void
