@@ -67,6 +67,20 @@ class ReportsTest extends TestCase
         $this->get(route('reports.all'))->assertOk()->assertSee('سوق جابر')->assertSee('سوق العقبة');
     }
 
+    public function test_group_report_summaries_add_up_the_rent_shown_for_each_market(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-12', 'Asia/Amman'));
+        $group = MarketGroup::factory()->create(['name' => 'أسواق الشمال']);
+        Market::factory()->create(['market_group_id' => $group->id, 'name' => 'سوق الرمثا', 'annual_rent' => 5000, 'lease_start_date' => '2025-10-08', 'lease_end_date' => null]);
+        $ended = Market::factory()->create(['market_group_id' => $group->id, 'name' => 'سوق جابر', 'annual_rent' => 2500, 'lease_start_date' => '2024-02-02', 'lease_end_date' => '2026-02-02', 'is_active' => false]);
+        $ended->rentPeriods()->create(['start_year' => 2024, 'end_year' => 2025, 'annual_rent' => 3000, 'status' => 'paid']);
+        $ended->rentPeriods()->create(['start_year' => 2025, 'end_year' => 2026, 'annual_rent' => 4000, 'status' => 'unpaid']);
+        $this->actingAs(User::factory()->create())->get(route('reports.group', $group))->assertOk()
+            ->assertSee('الإيجار السنوي الحالي<br><strong>9,000.00</strong>', false)
+            ->assertSee('<td>أسواق الشمال</td><td>2</td><td>200.00</td><td>9,000.00</td><td>17,000.00</td><td>3,000.00</td><td>14,000.00</td>', false)
+            ->assertSee('ملخص الأسواق')->assertSee('<td>سوق جابر</td><td>أسواق الشمال</td><td>مؤرشف</td><td>4,000.00</td><td>7,000.00</td><td>3,000.00</td><td>4,000.00</td><td dir="ltr">+33.33%</td>', false);
+    }
+
     public function test_pdf_exports_work_for_a_market_group_and_all_markets(): void
     {
         $market = Market::factory()->create(['name' => 'سوق جابر']);
