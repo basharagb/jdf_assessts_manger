@@ -152,6 +152,7 @@ class ReportsTest extends TestCase
             ->assertSee('<td>2,800.00</td><td dir="ltr">+12.00%</td><td>20.00 م²</td><td>200.00</td><td dir="ltr">—</td><td><b>3,000.00</b></td><td dir="ltr">+20.00%</td>', false)
             ->assertSee('<td>3,000.00</td><td dir="ltr">+7.14%</td><td>20.00 م²</td><td>220.00</td><td dir="ltr">+10.00%</td><td><b>3,220.00</b></td><td dir="ltr">+7.33%</td><td class="status-unpaid">غير مدفوع</td>', false)
             ->assertSee('<th>8,300.00</th>', false)->assertSee('<th>420.00</th>', false)->assertSee('<th>8,720.00</th>', false)
+            ->assertSee('الإيجار السنوي الحالي<br><strong>3,000.00</strong> د.أ<br><small>+ توسعة 220.00 د.أ</small>', false)
             ->assertDontSee('الفترات المسجلة')->assertDontSee('توسعات السوق');
     }
 
