@@ -62,23 +62,27 @@ class ReportController extends Controller
 
             return [
                 'market' => $market, 'rows' => $rows, 'totals' => AnnualLease::totals($rows), 'currentRents' => $market->displayedRentBySection(),
+                'currentRent' => round(array_sum($market->displayedRentBySection()), 2),
+                'averageIncrease' => AnnualLease::averageIncreaseRate(AnnualLease::increaseRates($this->yearlyTotals($rows), 'amount')),
                 'image' => $request->query('format') === 'pdf' ? $this->pdfImage($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg') : $this->image($market->image_path ?: 'markets/demo/jdf-generic-shop.jpg'),
             ];
         });
         $summary = [
             'count' => $markets->count(),
             'active' => $markets->where('is_active', true)->count(),
-            'annual' => $markets->where('is_active', true)->sum(fn (Market $market): float => $market->currentAnnualRent()),
+            'annual' => $entries->sum(fn (array $entry): float => $entry['currentRent']),
             'total' => $entries->sum(fn (array $entry): float => $entry['totals']['total']),
             'paid' => $entries->sum(fn (array $entry): float => $entry['totals']['paid']),
             'unpaid' => $entries->sum(fn (array $entry): float => $entry['totals']['unpaid']),
         ];
-        $groupSummaries = $markets->groupBy('market_group_id')->map(fn (Collection $group): array => [
-            'name' => $group->first()->group->name,
+        $groupSummaries = $entries->groupBy(fn (array $entry): int => $entry['market']->market_group_id)->map(fn (Collection $group): array => [
+            'name' => $group->first()['market']->group->name,
             'count' => $group->count(),
-            'area' => $group->sum('area'),
-            'annual' => $group->where('is_active', true)->sum(fn (Market $market): float => $market->currentAnnualRent()),
-            'total' => $entries->filter(fn (array $entry): bool => $entry['market']->market_group_id === $group->first()->market_group_id)->sum(fn (array $entry): float => $entry['totals']['total']),
+            'area' => $group->sum(fn (array $entry): float => (float) $entry['market']->area),
+            'annual' => $group->sum(fn (array $entry): float => $entry['currentRent']),
+            'total' => $group->sum(fn (array $entry): float => $entry['totals']['total']),
+            'paid' => $group->sum(fn (array $entry): float => $entry['totals']['paid']),
+            'unpaid' => $group->sum(fn (array $entry): float => $entry['totals']['unpaid']),
         ]);
         $pdf = $request->query('format') === 'pdf';
         $logo = $this->image(null, public_path('images/jdf_logo.png'));
@@ -107,6 +111,22 @@ class ReportController extends Controller
             'Content-Disposition' => 'inline; filename="'.$filename.'-'.now()->format('Y-m-d').'.pdf"',
             'Cache-Control' => 'private, no-store',
         ]);
+    }
+
+    /**
+     * One row per rental year with the amounts of all the market's sections added up, for whole-market increase rates.
+     *
+     * @param  list<array{year: int, amount: float, base: float, expansion: float, status: string}>  $rows
+     * @return list<array{amount: float, base: float, expansion: float, status: string}>
+     */
+    private function yearlyTotals(array $rows): array
+    {
+        return collect($rows)->groupBy('year')->map(fn (Collection $yearRows): array => [
+            'amount' => round($yearRows->sum('amount'), 2),
+            'base' => round($yearRows->sum('base'), 2),
+            'expansion' => round($yearRows->sum('expansion'), 2),
+            'status' => $yearRows->every(fn (array $row): bool => $row['status'] === 'vacant') ? 'vacant' : 'paid',
+        ])->values()->all();
     }
 
     private function pdfImage(string $storagePath): ?string
