@@ -21,7 +21,7 @@
                 <span class="login-kicker">مرحباً بعودتك</span><h2>تسجيل الدخول</h2><p class="login-subtitle">أدخل بيانات حسابك للوصول إلى لوحة الشؤون الادارية- توثيق وترخيص ممتلكات.</p>
                 @if($errors->any())<div class="login-error"><i data-lucide="circle-alert"></i><span>{{ $errors->first() }}</span></div>@endif
                 <form method="POST" action="{{ route('login.store') }}" class="login-form">@csrf
-                    <label class="field"><span>البريد الإلكتروني</span><div class="input-icon"><i data-lucide="mail"></i><input type="email" name="email" value="{{ old('email') }}" autocomplete="username" placeholder="name@jdf.jo" required autofocus></div></label>
+                    <label class="field"><span>اسم المستخدم</span><div class="input-icon"><i data-lucide="user"></i><input type="text" name="email" value="{{ old('email') }}" autocomplete="username" placeholder="أدخل اسم المستخدم" required autofocus></div></label>
                     <label class="field"><span>كلمة المرور</span><div class="input-icon"><i data-lucide="lock-keyhole"></i><input type="password" name="password" autocomplete="current-password" placeholder="أدخل كلمة المرور" required></div></label>
                     <label class="remember-row"><input type="checkbox" name="remember" value="1"><span>تذكرني على هذا الجهاز</span></label>
                     <button class="button button-primary button-full login-submit" type="submit">دخول إلى النظام <i data-lucide="arrow-left"></i></button>

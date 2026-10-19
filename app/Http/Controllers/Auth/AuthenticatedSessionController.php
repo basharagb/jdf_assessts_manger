@@ -18,9 +18,9 @@ class AuthenticatedSessionController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $credentials = $request->validate([
-            'email' => ['required', 'email'],
+            'email' => ['required', 'string'],
             'password' => ['required', 'string'],
-        ], [], ['email' => 'البريد الإلكتروني', 'password' => 'كلمة المرور']);
+        ], [], ['email' => 'اسم المستخدم', 'password' => 'كلمة المرور']);
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors(['email' => 'بيانات الدخول غير صحيحة.'])->onlyInput('email');
